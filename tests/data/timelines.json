@@ -1,0 +1,9 @@
+[
+  { "step": 1, "title": "Election Announcement", "icon": "📢", "date": "T-45 days" },
+  { "step": 2, "title": "Voter Roll Revision", "icon": "📋", "date": "T-40 days" },
+  { "step": 3, "title": "Nomination Filing", "icon": "📝", "date": "T-30 days" },
+  { "step": 4, "title": "Scrutiny & Withdrawal", "icon": "🔍", "date": "T-25 days" },
+  { "step": 5, "title": "Campaign Period", "icon": "📣", "date": "T-20 to T-2 days" },
+  { "step": 6, "title": "Polling Day", "icon": "🗳️", "date": "Election Day" },
+  { "step": 7, "title": "Counting & Results", "icon": "📊", "date": "T+3 days" }
+]

@@ -1,0 +1,35 @@
+{
+  "project": "voterverse",
+  "services": [
+    {
+      "name": "Gemini 1.5 Flash",
+      "usage": "Document Vision Analysis + Quiz Generation + Fraud Classification via Function Calling",
+      "integration_file": "backend/aiService.js"
+    },
+    {
+      "name": "Firebase Realtime Database",
+      "usage": "Live fraud reports, quiz sessions, election timeline data",
+      "integration_file": "backend/database.js"
+    },
+    {
+      "name": "Google Maps JavaScript API",
+      "usage": "Polling booth locator with AdvancedMarkerElement + Directions",
+      "integration_file": "frontend/src/pages/PollingBoothFinder.jsx"
+    },
+    {
+      "name": "Google Cloud Storage",
+      "usage": "Fraud report anonymized summaries archive",
+      "integration_file": "backend/server.js - /api/report/export"
+    },
+    {
+      "name": "Google Cloud Run",
+      "usage": "Serverless production hosting, structured JSON logging to Cloud Log Explorer",
+      "integration_file": "Dockerfile, auditLogger.js"
+    },
+    {
+      "name": "Google Analytics 4",
+      "usage": "User engagement: quiz_started, document_analyzed, fraud_reported events",
+      "integration_file": "frontend/src/utils/analytics.js"
+    }
+  ]
+}
