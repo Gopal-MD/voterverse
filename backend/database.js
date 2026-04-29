@@ -71,6 +71,7 @@ class InMemoryDB {
   constructor() {
     this.reports = new Map();
     this.quizSessions = new Map();
+    this.conversations = new Map();
     this.timeline = ELECTION_TIMELINE;
     logger.info('Database initialized in MEMORY mode');
   }
@@ -97,6 +98,21 @@ class InMemoryDB {
 
   async getQuizSession(id) {
     return this.quizSessions.get(id) || null;
+  }
+
+  async appendMessage(sessionId, message) {
+    const existing = this.conversations.get(sessionId) || [];
+    const updated = [...existing, { ...message, timestamp: new Date().toISOString() }];
+    this.conversations.set(sessionId, updated.slice(-50)); // keep last 50 messages
+    return updated;
+  }
+
+  async getConversation(sessionId) {
+    return this.conversations.get(sessionId) || [];
+  }
+
+  async clearConversation(sessionId) {
+    this.conversations.delete(sessionId);
   }
 
   getMode() {
@@ -158,6 +174,49 @@ class FirebaseDB {
   async getQuizSession(id) {
     const snapshot = await this.db.ref(`quizSessions/${id}`).once('value');
     return snapshot.val();
+  }
+
+  async appendMessage(sessionId, message) {
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Firebase timeout')), 3000)
+      );
+      const ref = this.db.ref(`conversations/${sessionId}/messages`);
+      await Promise.race([ref.push({ ...message, timestamp: new Date().toISOString() }), timeoutPromise]);
+      const snapshot = await Promise.race([ref.once('value'), timeoutPromise]);
+      const msgs = [];
+      snapshot.forEach(child => msgs.push(child.val()));
+      return msgs.slice(-50);
+    } catch (err) {
+      logger.warn('Firebase appendMessage failed', { error: err.message });
+      return [message];
+    }
+  }
+
+  async getConversation(sessionId) {
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Firebase timeout')), 3000)
+      );
+      const snapshot = await Promise.race([this.db.ref(`conversations/${sessionId}/messages`).once('value'), timeoutPromise]);
+      const msgs = [];
+      snapshot.forEach(child => msgs.push(child.val()));
+      return msgs;
+    } catch (err) {
+      logger.warn('Firebase getConversation failed', { error: err.message });
+      return [];
+    }
+  }
+
+  async clearConversation(sessionId) {
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Firebase timeout')), 3000)
+      );
+      await Promise.race([this.db.ref(`conversations/${sessionId}`).remove(), timeoutPromise]);
+    } catch (err) {
+      logger.warn('Firebase clearConversation failed', { error: err.message });
+    }
   }
 
   getMode() {

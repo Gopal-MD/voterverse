@@ -5,10 +5,12 @@ import DocumentAnalyzer from './pages/DocumentAnalyzer';
 import PollingBoothFinder from './pages/PollingBoothFinder';
 import FraudReportCenter from './pages/FraudReportCenter';
 import QuizArena from './pages/QuizArena';
+import ElectionChatbot from './pages/ElectionChatbot';
 import { initGA4 } from './utils/analytics';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Election Timeline', icon: '📅' },
+  { path: '/chatbot', label: 'AI Chatbot', icon: '🤖' },
   { path: '/document-analyzer', label: 'Document Analyzer', icon: '📄' },
   { path: '/polling-booths', label: 'Polling Booths', icon: '🗺️' },
   { path: '/fraud-report', label: 'Fraud Report', icon: '🚨' },
@@ -77,6 +79,7 @@ export default function App() {
         <main className="main-content" id="main-content">
           <Routes>
             <Route path="/" element={<ElectionTimeline />} />
+            <Route path="/chatbot" element={<ElectionChatbot />} />
             <Route path="/document-analyzer" element={<DocumentAnalyzer />} />
             <Route path="/polling-booths" element={<PollingBoothFinder />} />
             <Route path="/fraud-report" element={<FraudReportCenter />} />

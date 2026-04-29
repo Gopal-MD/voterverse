@@ -175,9 +175,26 @@ const MOCK_RESPONSES = {
 
 let quizIndex = 0;
 
-// ─── Gemini AI Client ───
+// ─── Gemini AI Clients ───
 let genAI = null;
-let model = null;
+let model = null;        // Function Calling model
+let chatModel = null;    // Plain chat model (no function calling)
+
+const CHAT_SYSTEM_PROMPT = `You are VoterBot, a friendly and knowledgeable AI assistant specializing in Indian elections. You help citizens understand:
+
+1. **Voter Registration** — How to register (Form 6), check/correct voter ID (Form 8), EPIC card details, NVSP portal, Aadhaar linking (Form 6B)
+2. **Voting Procedure** — How to vote, EVMs (Electronic Voting Machines), VVPAT verification, polling booth conduct, indelible ink, NOTA option
+3. **Election Rules** — Model Code of Conduct, candidate eligibility, expenditure limits, election schedule
+4. **Fraud Reporting** — cVIGIL app, ECI helpline 1950, types of election offences, legal provisions
+5. **Election Timeline** — Announcement, nomination, campaigning, polling, counting, results
+6. **Voter Rights** — Right to vote (Article 326), right to secret ballot, right to verify VVPAT slip
+
+Always be accurate, helpful, and encourage civic participation. If unsure, direct users to eci.gov.in or helpline 1950.
+
+After your answer, on a SEPARATE line starting with "SUGGESTIONS:", provide exactly 3 follow-up questions the user might want to ask, as a JSON array.
+Example: SUGGESTIONS: ["How do I check my voter ID status?", "What documents do I need at the polling booth?", "Can I vote if my name is wrong on the voter list?"]
+
+Keep your main answer concise (2-4 paragraphs). Use simple language for first-time voters.`;
 
 function initGemini() {
   if (model) return true;
@@ -190,11 +207,114 @@ function initGemini() {
     const { GoogleGenerativeAI } = require('@google/generative-ai');
     genAI = new GoogleGenerativeAI(apiKey);
     model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash', tools });
-    logger.info('Gemini AI initialized with Function Calling');
+    chatModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    logger.info('Gemini AI initialized with Function Calling + Chat model');
     return true;
   } catch (err) {
     logger.error('Failed to initialize Gemini', { error: err.message });
     return false;
+  }
+}
+
+// ─── Chat: parse suggestions out of streamed text ───
+function parseSuggestions(text) {
+  try {
+    const match = text.match(/SUGGESTIONS:\s*(\[.*?\])/s);
+    if (match) {
+      return JSON.parse(match[1]);
+    }
+  } catch { /* ignore */ }
+  return [
+    'How do I register to vote?',
+    'What ID do I need at the polling booth?',
+    'How can I report election fraud?',
+  ];
+}
+
+function stripSuggestions(text) {
+  return text.replace(/\nSUGGESTIONS:.*$/s, '').trim();
+}
+
+// ─── Mock chat responses ───
+const MOCK_CHAT_RESPONSES = {
+  registration: {
+    text: `To register as a voter in India, you need to follow these steps:\n\n**1. Check Eligibility**: You must be an Indian citizen aged 18 or above on the qualifying date (January 1st of the registration year).\n\n**2. Fill Form 6**: Download Form 6 from the National Voters' Service Portal (nvsp.in) or get it from your nearest Electoral Registration Office. Fill in your details including name, address, date of birth, and relationship proof.\n\n**3. Submit Documents**: Attach proof of age (birth certificate, school certificate, or passport), proof of residence (Aadhaar, utility bill, or passport), and a recent passport-size photograph.\n\n**4. Track Your Application**: After submission, you'll get an acknowledgment number to track your registration status online at nvsp.in.\n\nYou can also use the Voter Helpline App or call **1950** for assistance.`,
+    suggestions: ['What documents do I need for voter registration?', 'How do I correct my voter ID details?', 'How long does voter registration take?'],
+  },
+  voting: {
+    text: `On polling day, here's what you need to know:\n\n**Bring Valid ID**: Carry your EPIC (Voter ID card) or any of the 12 alternative photo IDs accepted by ECI (Aadhaar, PAN card, passport, driving license, etc.).\n\n**Find Your Booth**: Check your polling booth on the Voter Helpline App or at nvsp.in. Booths are open from 7 AM to 6 PM.\n\n**Voting Process**: After identity verification, your name is marked in the electoral roll and indelible ink is applied to your left index finger. You then proceed to the EVM to press the candidate's button. The VVPAT machine shows a paper slip for 7 seconds confirming your vote.\n\n**Your Rights**: Voting is confidential — no one can know who you voted for. You have the right to NOTA (None of the Above) if you don't want to vote for any candidate.`,
+    suggestions: ['What is NOTA and how do I use it?', 'Can I vote if my name is spelled wrong on the list?', 'What happens if I lose my voter ID?'],
+  },
+  default: {
+    text: `I'm VoterBot, your guide to Indian elections! I can help you with:\n\n🗳️ **Voter Registration** — How to register, correct your voter ID, or check your status\n\n📋 **Voting Procedure** — What to bring, how EVMs work, VVPAT verification\n\n🏛️ **Election Rules** — Model Code of Conduct, candidate eligibility, your voting rights\n\n🚨 **Fraud Reporting** — How to report suspicious activity via cVIGIL app or calling 1950\n\nWhat would you like to know about?`,
+    suggestions: ['How do I register to vote?', 'What should I bring to the polling booth?', 'How do I report election fraud?'],
+  },
+};
+
+/**
+ * Stream a chat response from Gemini with conversation history
+ * Yields text chunks as they arrive, then a suggestions chunk
+ */
+async function* streamChatResponse(message, history = [], topic = '') {
+  initGemini();
+
+  // Mock mode fallback
+  if (!chatModel) {
+    const key = topic === 'registration' ? 'registration' : topic === 'voting' ? 'voting' : 'default';
+    const mock = MOCK_CHAT_RESPONSES[key];
+    // Simulate streaming by yielding words progressively
+    const words = mock.text.split(' ');
+    for (let i = 0; i < words.length; i += 5) {
+      yield { type: 'text', chunk: words.slice(i, i + 5).join(' ') + ' ' };
+      await new Promise(r => setTimeout(r, 30));
+    }
+    yield { type: 'suggestions', suggestions: mock.suggestions };
+    return;
+  }
+
+  try {
+    // Build chat history in Gemini format
+    const contents = history.slice(-10).map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }],
+    }));
+
+    let userText = message;
+    if (topic) {
+      userText = `[Topic: ${topic}] ${message}`;
+    }
+    
+    // Inject system prompt into the first message of the conversation
+    if (contents.length === 0) {
+      userText = `System Instruction (Follow this strictly): ${CHAT_SYSTEM_PROMPT}\n\nUser Question: ${userText}`;
+    }
+
+    contents.push({ role: 'user', parts: [{ text: userText }] });
+
+    // Use standard generateContent instead of streamGenerateContent to avoid 404 API error
+    const result = await chatModel.generateContent({ contents });
+    const fullText = result.response.text();
+
+    const mainText = stripSuggestions(fullText);
+    yield { type: 'text', chunk: mainText };
+
+    const suggestions = parseSuggestions(fullText);
+    yield { type: 'suggestions', suggestions };
+
+    logger.info('Chat response streamed', { topic, historyLength: history.length });
+  } catch (err) {
+    logger.error('Chat streaming failed, falling back to mock', { error: err.message });
+    
+    // Fallback to mock responses seamlessly
+    const key = topic === 'registration' ? 'registration' : topic === 'voting' ? 'voting' : 'default';
+    const mock = MOCK_CHAT_RESPONSES[key];
+    
+    const words = mock.text.split(' ');
+    for (let i = 0; i < words.length; i += 5) {
+      yield { type: 'text', chunk: words.slice(i, i + 5).join(' ') + ' ' };
+      await new Promise(r => setTimeout(r, 30));
+    }
+    yield { type: 'suggestions', suggestions: mock.suggestions };
   }
 }
 
@@ -353,6 +473,7 @@ module.exports = {
   analyzeElectionDocument,
   generateQuizQuestion,
   classifyFraudReport,
+  streamChatResponse,
   tools,
   functionDeclarations,
   MOCK_RESPONSES,
