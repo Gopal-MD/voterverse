@@ -54,13 +54,16 @@ export default function ElectionChatbot() {
     if (!text.trim() || isLoading) return;
 
     const userMessage = { role: 'user', content: text };
-    setMessages(prev => [...prev, userMessage]);
+
+    setMessages(prev => [
+      ...prev,
+      userMessage,
+      { role: 'model', content: '', isStreaming: true }
+    ]);
+
     setInput('');
     setIsLoading(true);
     setSuggestions([]);
-
-    // Add a temporary model message for streaming
-    setMessages(prev => [...prev, { role: 'model', content: '', isStreaming: true }]);
 
     try {
       const response = await fetch('/api/chat/stream', {
@@ -91,9 +94,13 @@ export default function ElectionChatbot() {
               if (data.type === 'text') {
                 setMessages(prev => {
                   const newMsgs = [...prev];
-                  const lastMsg = newMsgs[newMsgs.length - 1];
+                  const lastMsgIdx = newMsgs.length - 1;
+                  const lastMsg = newMsgs[lastMsgIdx];
                   if (lastMsg.isStreaming) {
-                    lastMsg.content += data.content;
+                    newMsgs[lastMsgIdx] = {
+                      ...lastMsg,
+                      content: lastMsg.content + data.content
+                    };
                   }
                   return newMsgs;
                 });

@@ -206,8 +206,8 @@ function initGemini() {
   try {
     const { GoogleGenerativeAI } = require('@google/generative-ai');
     genAI = new GoogleGenerativeAI(apiKey);
-    model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash', tools });
-    chatModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest', tools });
+    chatModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
     logger.info('Gemini AI initialized with Function Calling + Chat model');
     return true;
   } catch (err) {
@@ -249,7 +249,28 @@ const MOCK_CHAT_RESPONSES = {
     text: `I'm VoterBot, your guide to Indian elections! I can help you with:\n\n🗳️ **Voter Registration** — How to register, correct your voter ID, or check your status\n\n📋 **Voting Procedure** — What to bring, how EVMs work, VVPAT verification\n\n🏛️ **Election Rules** — Model Code of Conduct, candidate eligibility, your voting rights\n\n🚨 **Fraud Reporting** — How to report suspicious activity via cVIGIL app or calling 1950\n\nWhat would you like to know about?`,
     suggestions: ['How do I register to vote?', 'What should I bring to the polling booth?', 'How do I report election fraud?'],
   },
+  fraud: {
+    text: `If you witness any election fraud like vote buying, booth capturing, or intimidation, you can report it through the following channels:\n\n**1. cVIGIL App**: Download the Election Commission's cVIGIL app. It allows you to take a photo or video and report violations instantly. The team is required to respond within 100 minutes.\n\n**2. Voter Helpline**: Call the toll-free number **1950** to report issues directly to election officials.\n\n**3. Returning Officer**: You can submit a written complaint to the Returning Officer of your constituency.`,
+    suggestions: ['What is the cVIGIL app?', 'Is my identity kept secret if I report fraud?', 'What are the penalties for vote buying?'],
+  },
 };
+
+function getMockChatKey(message, topic) {
+  const lower = message.toLowerCase();
+  let key = 'default';
+
+  if (topic === 'registration' || lower.includes('register') || lower.includes('voter id') || lower.includes('form 6')) {
+    key = 'registration';
+  } else if (topic === 'voting' || lower.includes('polling') || lower.includes('vote') || lower.includes('booth') || lower.includes('evm') || lower.includes('vvpat')) {
+    key = 'voting';
+  } else if (topic === 'fraud' || lower.includes('fraud') || lower.includes('cvigil') || lower.includes('report') || lower.includes('offence')) {
+    key = 'fraud';
+  } else if (lower.includes('hello') || lower.includes('hi')) {
+    key = 'default';
+  }
+  
+  return MOCK_CHAT_RESPONSES[key] ? key : 'default';
+}
 
 /**
  * Stream a chat response from Gemini with conversation history
@@ -260,7 +281,7 @@ async function* streamChatResponse(message, history = [], topic = '') {
 
   // Mock mode fallback
   if (!chatModel) {
-    const key = topic === 'registration' ? 'registration' : topic === 'voting' ? 'voting' : 'default';
+    const key = getMockChatKey(message, topic);
     const mock = MOCK_CHAT_RESPONSES[key];
     // Simulate streaming by yielding words progressively
     const words = mock.text.split(' ');
@@ -306,7 +327,7 @@ async function* streamChatResponse(message, history = [], topic = '') {
     logger.error('Chat streaming failed, falling back to mock', { error: err.message });
     
     // Fallback to mock responses seamlessly
-    const key = topic === 'registration' ? 'registration' : topic === 'voting' ? 'voting' : 'default';
+    const key = getMockChatKey(message, topic);
     const mock = MOCK_CHAT_RESPONSES[key];
     
     const words = mock.text.split(' ');
