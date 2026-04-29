@@ -7,6 +7,7 @@
     "dev": "concurrently -k \"npm run dev --prefix frontend\" \"npm run start:dev --prefix backend\"",
     "test": "npm run test:mock && npm run coverage --prefix backend && npm run coverage --prefix frontend",
     "test:mock": "node tests/mock-test-runner.js",
+    "test:e2e": "npm run test:e2e --prefix frontend",
     "test:integration": "npm run test --prefix backend",
     "build:frontend": "npm run build --prefix frontend",
     "ci": "npm run test:mock && npm run test --prefix backend && npm run test --prefix frontend && npm run build:frontend",

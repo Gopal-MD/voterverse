@@ -51,6 +51,9 @@ npm run test:mock
 
 # Full CI pipeline
 npm run ci
+
+# End-to-End Tests (Playwright)
+npm run test:e2e
 ```
 
 ## 🔒 Security
@@ -60,6 +63,7 @@ npm run ci
 - Input sanitization on all user strings
 - Zero persistence of uploaded images
 - HMAC-style report IDs (non-sequential)
+- **Google Secret Manager**: Integrated for production key injection, ensuring zero hardcoded secrets in build artifacts.
 
 ## ♿ Accessibility
 

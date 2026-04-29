@@ -77,39 +77,42 @@ export default function ElectionChatbot() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       
+      let buffer = '';
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
         
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        // Keep the last partial line in the buffer
+        buffer = lines.pop() || '';
         
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const dataStr = line.slice(6);
-            if (dataStr === '[DONE]') break;
-            
-            try {
-              const data = JSON.parse(dataStr);
-              if (data.type === 'text') {
-                setMessages(prev => {
-                  const newMsgs = [...prev];
-                  const lastMsgIdx = newMsgs.length - 1;
-                  const lastMsg = newMsgs[lastMsgIdx];
-                  if (lastMsg.isStreaming) {
-                    newMsgs[lastMsgIdx] = {
-                      ...lastMsg,
-                      content: lastMsg.content + data.content
-                    };
-                  }
-                  return newMsgs;
-                });
-              } else if (data.type === 'suggestions') {
-                setSuggestions(data.content);
-              }
-            } catch (e) {
-              console.error('Error parsing stream data', e);
+          const trimmedLine = line.trim();
+          if (!trimmedLine || !trimmedLine.startsWith('data: ')) continue;
+          
+          const dataStr = trimmedLine.slice(6);
+          if (dataStr === '[DONE]') break;
+          
+          try {
+            const data = JSON.parse(dataStr);
+            if (data.type === 'text') {
+              setMessages(prev => {
+                const newMsgs = [...prev];
+                const lastIdx = newMsgs.length - 1;
+                if (lastIdx >= 0 && newMsgs[lastIdx].isStreaming) {
+                  newMsgs[lastIdx] = {
+                    ...newMsgs[lastIdx],
+                    content: newMsgs[lastIdx].content + data.content
+                  };
+                }
+                return newMsgs;
+              });
+            } else if (data.type === 'suggestions') {
+              setSuggestions(data.content);
             }
+          } catch (e) {
+            console.error('Error parsing stream data:', e, dataStr);
           }
         }
       }
