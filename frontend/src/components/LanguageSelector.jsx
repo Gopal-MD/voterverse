@@ -33,11 +33,6 @@ export default function LanguageSelector({ onLanguageChange }) {
           ))}
         </select>
       </div>
-...
-LanguageSelector.propTypes = {
-  /** Callback function triggered when the language is changed */
-  onLanguageChange: PropTypes.func.isRequired,
-};
 
       <style>{`
         .language-selector {
@@ -77,3 +72,8 @@ LanguageSelector.propTypes = {
     </div>
   );
 }
+
+LanguageSelector.propTypes = {
+  /** Callback function triggered when the language is changed */
+  onLanguageChange: PropTypes.func.isRequired,
+};

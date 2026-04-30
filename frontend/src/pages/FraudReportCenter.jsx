@@ -81,6 +81,8 @@ export default function FraudReportCenter() {
     setLoading(false);
   };
 
+  const severityClass = (s) => `chip severity-${s || 'low'}`;
+
   return (
     <div className="page-container">
       <section className="hero">
@@ -137,16 +139,9 @@ export default function FraudReportCenter() {
                 <span className="analysis-label">Action</span>
                 <span className="analysis-value">{result.recommended_action}</span>
               </div>
-              <div className="analysis-row">
-                <span className="analysis-label">ECI Reference</span>
-                <span className="analysis-value">{result.eci_reference}</span>
-              </div>
-              <div style={{ marginTop: 16 }}>
-                <button className="btn btn-outline" onClick={() => { setResult(null); setForm({ description: '', location: '', fraudType: '', evidence: null }); }}>
-                  📝 File Another Report
-                </button>
-                <button className="btn btn-outline" style={{ marginLeft: 8 }} onClick={() => setTab('dashboard')}>
-                  📊 View Dashboard
+              <div style={{ marginTop: 20 }}>
+                <button className="btn btn-outline btn-block" onClick={() => setResult(null)}>
+                  File Another Report
                 </button>
               </div>
             </div>
@@ -189,7 +184,7 @@ export default function FraudReportCenter() {
               </button>
             </form>
           )}
-        </>
+        </div>
       )}
 
       {tab === 'dashboard' && (
