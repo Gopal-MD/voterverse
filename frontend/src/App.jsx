@@ -45,6 +45,29 @@ export default function App() {
 
   const themeIcon = theme === 'dark' ? '🌙' : theme === 'light' ? '☀️' : '🔳';
 
+  const [appError, setAppError] = useState(null);
+
+  console.log('App Rendering... Current State:', { sidebarOpen, theme, location: location.pathname });
+
+  useEffect(() => {
+    const handleError = (e) => {
+      console.error('CRITICAL APP ERROR:', e);
+      setAppError(e.message || 'Unknown app error');
+    };
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
+  if (appError) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center', background: 'red', color: 'white', height: '100vh', zIndex: 99999, position: 'relative' }}>
+        <h1 style={{ fontSize: '3rem' }}>🚨 CRITICAL ERROR 🚨</h1>
+        <p style={{ fontSize: '1.5rem', margin: '20px 0' }}>{appError}</p>
+        <button className="btn btn-primary" onClick={() => { localStorage.clear(); window.location.reload(); }}>Reset & Reload</button>
+      </div>
+    );
+  }
+
   return (
     <>
       <a href="#main-content" className="skip-link">Skip to main content</a>

@@ -93,8 +93,9 @@ export default function PollingBoothFinder() {
       </div>
 
       {mapsKey ? (
-        <div role="region" aria-label="Polling Booth Map" className="map-container" ref={mapRef}>
-          {!mapLoaded && <p className="loading-pulse" style={{ padding: 20 }}>Loading map...</p>}
+        <div style={{ position: 'relative' }}>
+          {!mapLoaded && <p className="loading-pulse" style={{ padding: 20, position: 'absolute', top: 0, left: 0, zIndex: 10 }}>Loading map...</p>}
+          <div role="region" aria-label="Polling Booth Map" className="map-container" ref={mapRef}></div>
         </div>
       ) : (
         <div className="glass-card" style={{ marginBottom: 20 }}>
