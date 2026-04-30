@@ -39,17 +39,23 @@ export default function PollingBoothFinder() {
   };
 
   const initMap = () => {
-    if (!mapRef.current || !window.google?.maps) return;
-    const center = userLocation || { lat: 28.6139, lng: 77.2090 };
-    const map = new window.google.maps.Map(mapRef.current, {
-      center, zoom: 12, mapId: 'voterverse-map',
-      styles: [{ featureType: 'all', elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] }],
-    });
-    mapInstanceRef.current = map;
-    MOCK_BOOTHS.forEach(booth => {
-      const marker = new window.google.maps.Marker({ position: { lat: booth.lat, lng: booth.lng }, map, title: booth.name });
-      marker.addListener('click', () => setSelectedBooth(booth));
-    });
+    try {
+      if (!mapRef.current || !window.google?.maps) return;
+      const center = userLocation || { lat: 28.6139, lng: 77.2090 };
+      const map = new window.google.maps.Map(mapRef.current, {
+        center, zoom: 12, mapId: 'voterverse-map',
+        styles: [{ featureType: 'all', elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] }],
+      });
+      mapInstanceRef.current = map;
+      MOCK_BOOTHS.forEach(booth => {
+        const marker = new window.google.maps.Marker({ position: { lat: booth.lat, lng: booth.lng }, map, title: booth.name });
+        marker.addListener('click', () => setSelectedBooth(booth));
+      });
+    } catch (err) {
+      console.error('Map init failed:', err);
+      setMapLoaded(false);
+      setMapsKey(''); // Trigger list-view fallback if init fails
+    }
   };
 
   const getUserLocation = () => {
