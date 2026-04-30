@@ -7,6 +7,8 @@ import FraudReportCenter from './pages/FraudReportCenter';
 import QuizArena from './pages/QuizArena';
 import ElectionChatbot from './pages/ElectionChatbot';
 import { initGA4 } from './utils/analytics';
+import LanguageSelector from './components/LanguageSelector';
+
 
 const NAV_ITEMS = [
   { path: '/', label: 'Election Timeline', icon: '📅' },
@@ -20,6 +22,7 @@ const NAV_ITEMS = [
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('vv-theme') || 'dark');
+  const [lang, setLang] = useState(() => localStorage.getItem('vv-lang') || 'en');
   const [appError, setAppError] = useState(null);
   const location = useLocation();
 
@@ -106,6 +109,7 @@ export default function App() {
             <Route path="/quiz" element={<QuizArena />} />
           </Routes>
         </main>
+        <LanguageSelector onLanguageChange={setLang} />
       </div>
     </>
   );

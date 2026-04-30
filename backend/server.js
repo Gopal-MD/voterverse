@@ -11,106 +11,109 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const crypto = require('crypto');
 const path = require('path');
+const constants = require('./config/constants');
 const logger = require('./auditLogger');
 const db = require('./database');
 const ai = require('./aiService');
+const translate = require('./translationService');
+const secrets = require('./config/secrets');
 const { validateFraudReport } = require('./cloud-functions/mockFunctions');
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || constants.SERVER.DEFAULT_PORT;
+
+// ─── Initialize Secrets ───
+// This is done before any services start to ensure keys are available
+secrets.initSecrets().then(() => {
+  logger.info('Secrets initialization attempt completed');
+});
 
 // Trust the reverse proxy (Cloud Run) for rate limiting
-app.set('trust proxy', 1);
+app.set('trust proxy', constants.SERVER.TRUST_PROXY_HOPS);
 
 // ─── Security Middleware ───
 
-// Helmet with custom CSP whitelisting Google APIs
+/**
+ * Configure CSP to allow necessary Google services while preventing XSS.
+ */
 app.use(
   helmet({
     contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          'https://maps.googleapis.com',
-          'https://www.googletagmanager.com',
-          'https://www.google-analytics.com',
-        ],
-        connectSrc: [
-          "'self'",
-          'https://*.googleapis.com',
-          'https://*.firebaseio.com',
-          'https://www.google-analytics.com',
-          'https://analytics.google.com',
-        ],
-        imgSrc: ["'self'", 'data:', 'blob:', 'https://maps.gstatic.com', 'https://*.googleapis.com'],
-        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-        frameSrc: ["'self'", 'https://maps.googleapis.com'],
-      },
+      directives: constants.SECURITY.CSP_DIRECTIVES,
     },
     crossOriginEmbedderPolicy: false,
   })
 );
 
-// Disable x-powered-by
+// Disable x-powered-by to prevent fingerprinting
 app.disable('x-powered-by');
 
-// CORS: strict in production, open in development
+/**
+ * Configure CORS to restrict cross-origin requests in production.
+ */
 const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:8080',
+  ...constants.SECURITY.CORS_ALLOWED_ORIGINS,
   process.env.CLOUD_RUN_URL,
 ].filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (server-to-server, curl)
       if (!origin) return callback(null, true);
       if (process.env.NODE_ENV === 'production') {
         if (allowedOrigins.includes(origin)) return callback(null, true);
         logger.warn('CORS rejected origin', { origin });
         return callback(new Error(`CORS policy violation: ${origin}`));
       }
-      callback(null, true); // open in development
+      callback(null, true);
     },
     credentials: true,
   })
 );
 
-// General rate limiter: 120 req / 15 min per IP on all /api/* routes
+/**
+ * General API Rate Limiter
+ */
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 120,
+  windowMs: constants.SECURITY.RATE_LIMIT_WINDOW_MS,
+  max: constants.SECURITY.RATE_LIMIT_MAX_REQUESTS,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
 });
-app.use('/api/', limiter);
+app.use(constants.SERVER.API_PREFIX, limiter);
 
-// Strict AI chat limiter: 30 req / 10 min (prevents Gemini API abuse)
+/**
+ * Specialized Rate Limiter for AI Chat (more restrictive to prevent abuse)
+ */
 const chatLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 30,
+  windowMs: constants.SECURITY.CHAT_LIMIT_WINDOW_MS,
+  max: constants.SECURITY.CHAT_LIMIT_MAX_REQUESTS,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Chat rate limit exceeded. Please wait a moment.' },
 });
 
-// Body parsing — 2MB for general routes, 8MB for document/evidence uploads
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+// Global Body Parsing - Default limit
+app.use(express.json({ limit: constants.SERVER.BODY_LIMIT_DEFAULT }));
+app.use(express.urlencoded({ extended: true, limit: constants.SERVER.BODY_LIMIT_DEFAULT }));
 
-// ─── Helper: sanitize and escape user input ───
+/**
+ * Helper: Sanitize and escape user input to prevent XSS.
+ * @param {string} str - Input string
+ * @param {number} [maxLen=1000] - Maximum allowed length
+ * @returns {string} Sanitized string
+ */
 const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
 function sanitize(str, maxLen = 1000) {
   if (typeof str !== 'string') return '';
   return str.trim().substring(0, maxLen).replace(/[&<>"']/g, c => HTML_ESCAPE[c]);
 }
 
-// ─── Helper: generate HMAC-style report ID ───
+/**
+ * Helper: Generate a unique report ID with timestamp and entropy.
+ * @returns {string} Unique ID
+ */
 function generateReportId() {
   const timestamp = Date.now().toString(36);
   const random = crypto.randomBytes(8).toString('hex');
@@ -119,7 +122,10 @@ function generateReportId() {
 
 // ─── API Routes ───
 
-// Health check
+/**
+ * GET /api/health
+ * Returns service health status and current database mode.
+ */
 app.get('/api/health', async (req, res) => {
   try {
     res.json({
@@ -135,14 +141,34 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Runtime config for frontend (maps key injection)
-// Cache for 5 min — the config is static and doesn't change per-request
+/**
+ * GET /api/config
+ * Returns client-side runtime configuration.
+ */
 app.get('/api/config', (req, res) => {
   res.set('Cache-Control', 'public, max-age=300, s-maxage=300');
   res.json({
     mapsApiKey: process.env.MAPS_API_KEY || '',
     ga4MeasurementId: process.env.GA4_MEASUREMENT_ID || '',
   });
+});
+
+/**
+ * POST /api/translate
+ * Translates text into a target regional language.
+ */
+app.post('/api/translate', async (req, res) => {
+  try {
+    const { text, targetLang } = req.body;
+    if (!text || !targetLang) {
+      return res.status(400).json({ error: 'Text and targetLang are required' });
+    }
+    const translated = await translate.translateText(text, targetLang);
+    res.json({ translated });
+  } catch (err) {
+    logger.error('API Translation failed', { error: err.message });
+    res.status(500).json({ error: 'Translation service error' });
+  }
 });
 
 // Service metadata
@@ -298,7 +324,10 @@ app.post('/api/chat/stream', chatLimiter, async (req, res) => {
   }
 });
 
-// Fraud report submission
+/**
+ * POST /api/fraud/report
+ * Submits a new fraud report, classifies it with AI, and saves to GCS.
+ */
 app.post('/api/fraud/report', async (req, res) => {
   try {
     const description = sanitize(req.body.description, 1000);
@@ -306,27 +335,30 @@ app.post('/api/fraud/report', async (req, res) => {
     const fraudType = sanitize(req.body.fraudType, 50);
     const evidence = req.body.evidence; // base64 image, optional
 
-    // Validate
+    // 1. Basic Validation
     const validation = validateFraudReport({ description, location, fraudType });
     if (!validation.valid) {
       return res.status(400).json({ error: validation.errors.join('; ') });
     }
 
-    // Validate evidence size if provided
-    if (evidence) {
-      const approxSize = (evidence.length * 3) / 4;
-      if (approxSize > 5 * 1024 * 1024) {
-        return res.status(400).json({ error: 'Evidence image exceeds 5MB limit' });
-      }
+    // 2. Evidence size check
+    if (evidence && (evidence.length * 3) / 4 > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Evidence image exceeds 5MB limit' });
     }
 
-    // AI classification
+    // 3. AI Classification
     const classification = await ai.classifyFraudReport(description);
-
-    // Generate HMAC-style report ID
     const reportId = generateReportId();
 
-    // Save anonymized report (no PII, no images)
+    // 4. Persistent Storage (GCS)
+    const storageResult = await storage.uploadReportSummary(reportId, {
+      fraud_type: classification.fraud_type,
+      severity: classification.severity,
+      location,
+      reportedAs: fraudType
+    });
+
+    // 5. Database Save
     await db.saveReport(reportId, {
       fraud_type: classification.fraud_type,
       severity: classification.severity,
@@ -337,35 +369,7 @@ app.post('/api/fraud/report', async (req, res) => {
       status: 'submitted',
     });
 
-    // Handle evidence upload to GCS (simulation in dev)
-    let evidenceStatus = 'none';
-    if (evidence) {
-      if (process.env.K_SERVICE && process.env.GCS_REPORTS_BUCKET) {
-        try {
-          const { Storage } = require('@google-cloud/storage');
-          const storage = new Storage();
-          const bucket = storage.bucket(process.env.GCS_REPORTS_BUCKET);
-          const file = bucket.file(`evidence/${reportId}.summary.txt`);
-          await file.save(
-            `Report: ${reportId}\nType: ${classification.fraud_type}\nSeverity: ${classification.severity}\nLocation: ${location}\nTimestamp: ${new Date().toISOString()}`
-          );
-          evidenceStatus = 'uploaded_to_gcs';
-          logger.info('Evidence summary uploaded to GCS', { reportId });
-        } catch (gcsErr) {
-          logger.error('GCS upload failed', { error: gcsErr.message });
-          evidenceStatus = 'gcs_upload_failed';
-        }
-      } else {
-        logger.info('Simulation: would upload evidence summary to GCS', { reportId });
-        evidenceStatus = 'simulated';
-      }
-    }
-
-    logger.info('Fraud report submitted', {
-      reportId,
-      fraudType: classification.fraud_type,
-      severity: classification.severity,
-    });
+    logger.info('Fraud report processed', { reportId, type: classification.fraud_type });
 
     res.json({
       reportId,
@@ -373,7 +377,7 @@ app.post('/api/fraud/report', async (req, res) => {
       severity: classification.severity,
       recommended_action: classification.recommended_action,
       eci_reference: classification.eci_reference || 'ECI Helpline: 1950',
-      evidenceStatus,
+      evidenceStatus: storageResult ? 'persisted' : 'local_only',
       status: 'submitted',
     });
   } catch (err) {
@@ -448,54 +452,27 @@ app.post('/api/simulate', async (req, res) => {
   }
 });
 
-// Export fraud reports to GCS (CSV)
+/**
+ * POST /api/report/export
+ * Exports all reports to a CSV file in Google Cloud Storage.
+ */
 app.post('/api/report/export', async (req, res) => {
   try {
     const reports = await db.getReports();
-
     if (reports.length === 0) {
       return res.json({ message: 'No reports to export', exported: 0 });
     }
 
-    // Generate CSV
-    const headers = 'ReportID,FraudType,Severity,Location,Status,CreatedAt\n';
-    const rows = reports
-      .map(
-        (r) =>
-          `${r.id},${r.fraud_type},${r.severity},"${r.location || ''}",${r.status},${r.createdAt}`
-      )
-      .join('\n');
-    const csv = headers + rows;
-
-    if (process.env.K_SERVICE && process.env.GCS_REPORTS_BUCKET) {
-      try {
-        const { Storage } = require('@google-cloud/storage');
-        const storage = new Storage();
-        const bucket = storage.bucket(process.env.GCS_REPORTS_BUCKET);
-        const fileName = `exports/fraud-reports-${new Date().toISOString().split('T')[0]}.csv`;
-        const file = bucket.file(fileName);
-        await file.save(csv, { contentType: 'text/csv' });
-        logger.info('Reports exported to GCS', { fileName, count: reports.length });
-        res.json({
-          message: 'Reports exported to Google Cloud Storage',
-          fileName,
-          exported: reports.length,
-        });
-      } catch (gcsErr) {
-        logger.error('GCS export failed', { error: gcsErr.message });
-        res.json({
-          message: 'Simulation: would export to GCS (GCS error)',
-          exported: reports.length,
-          csv_preview: csv.substring(0, 500),
-        });
-      }
-    } else {
-      logger.info('Simulation: would export reports to GCS', { count: reports.length });
+    const fileName = await storage.exportToCSV(reports);
+    
+    if (fileName) {
       res.json({
-        message: 'Simulation: would export to GCS bucket',
+        message: 'Reports exported to Google Cloud Storage',
+        fileName,
         exported: reports.length,
-        csv_preview: csv.substring(0, 500),
       });
+    } else {
+      res.status(500).json({ error: 'Export failed' });
     }
   } catch (err) {
     logger.error('Report export failed', { error: err.message });

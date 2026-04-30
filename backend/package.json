@@ -11,7 +11,9 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@google-cloud/secret-manager": "^6.1.1",
     "@google-cloud/storage": "^7.7.0",
+    "@google-cloud/translate": "^9.3.0",
     "@google/generative-ai": "^0.21.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

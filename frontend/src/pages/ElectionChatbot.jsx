@@ -77,6 +77,7 @@ export default function ElectionChatbot() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       
+      let fullContent = '';
       let buffer = '';
       while (true) {
         const { value, done } = await reader.read();
@@ -84,7 +85,6 @@ export default function ElectionChatbot() {
         
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
-        // Keep the last partial line in the buffer
         buffer = lines.pop() || '';
         
         for (const line of lines) {
@@ -97,24 +97,47 @@ export default function ElectionChatbot() {
           try {
             const data = JSON.parse(dataStr);
             if (data.type === 'text') {
+              fullContent += data.content;
               setMessages(prev => {
                 const newMsgs = [...prev];
                 const lastIdx = newMsgs.length - 1;
                 if (lastIdx >= 0 && newMsgs[lastIdx].isStreaming) {
                   newMsgs[lastIdx] = {
                     ...newMsgs[lastIdx],
-                    content: newMsgs[lastIdx].content + data.content
+                    content: fullContent
                   };
                 }
                 return newMsgs;
               });
             } else if (data.type === 'suggestions') {
-              setSuggestions(data.content);
+              // Translate suggestions if needed
+              const currentLang = localStorage.getItem('vv-lang') || 'en';
+              if (currentLang !== 'en') {
+                const { translateText } = await import('../utils/translation');
+                const translatedSugs = await Promise.all(
+                  data.content.map(s => translateText(s, currentLang))
+                );
+                setSuggestions(translatedSugs);
+              } else {
+                setSuggestions(data.content);
+              }
             }
           } catch (e) {
             console.error('Error parsing stream data:', e, dataStr);
           }
         }
+      }
+
+      // Final Translation for non-English users
+      const currentLang = localStorage.getItem('vv-lang') || 'en';
+      if (currentLang !== 'en' && fullContent) {
+        const { translateText } = await import('../utils/translation');
+        const translatedText = await translateText(fullContent, currentLang);
+        setMessages(prev => {
+          const newMsgs = [...prev];
+          newMsgs[newMsgs.length - 1].content = translatedText;
+          return newMsgs;
+        });
       }
     } catch (error) {
       console.error('Chat error:', error);
@@ -127,13 +150,13 @@ export default function ElectionChatbot() {
       });
       setSuggestions(['How do I register to vote?', 'What ID do I need at the polling booth?']);
     } finally {
+      setIsLoading(false);
       setMessages(prev => {
         const newMsgs = [...prev];
         const lastMsg = newMsgs[newMsgs.length - 1];
         if (lastMsg.isStreaming) delete lastMsg.isStreaming;
         return newMsgs;
       });
-      setIsLoading(false);
     }
   };
 
