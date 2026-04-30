@@ -19,6 +19,9 @@ const { validateFraudReport } = require('./cloud-functions/mockFunctions');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// Trust the reverse proxy (Cloud Run) for rate limiting
+app.set('trust proxy', 1);
+
 // ─── Security Middleware ───
 
 // Helmet with custom CSP whitelisting Google APIs
