@@ -20,6 +20,7 @@ const NAV_ITEMS = [
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('vv-theme') || 'dark');
+  const [appError, setAppError] = useState(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -44,10 +45,6 @@ export default function App() {
   };
 
   const themeIcon = theme === 'dark' ? '🌙' : theme === 'light' ? '☀️' : '🔳';
-
-  const [appError, setAppError] = useState(null);
-
-  console.log('App Rendering... Current State:', { sidebarOpen, theme, location: location.pathname });
 
   useEffect(() => {
     const handleError = (e) => {

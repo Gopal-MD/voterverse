@@ -57,7 +57,7 @@ app.use(
 // Disable x-powered-by
 app.disable('x-powered-by');
 
-// CORS whitelist
+// CORS: strict in production, open in development
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:8080',
@@ -67,35 +67,47 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (server-to-server, curl, etc.)
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(null, true); // In development, allow all; tighten in production
+      // Allow requests with no origin (server-to-server, curl)
+      if (!origin) return callback(null, true);
+      if (process.env.NODE_ENV === 'production') {
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        logger.warn('CORS rejected origin', { origin });
+        return callback(new Error(`CORS policy violation: ${origin}`));
       }
+      callback(null, true); // open in development
     },
     credentials: true,
   })
 );
 
-// Rate limiting: 100 requests per 15 minutes per IP on /api/*
+// General rate limiter: 120 req / 15 min per IP on all /api/* routes
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
 });
 app.use('/api/', limiter);
 
-// Body parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Strict AI chat limiter: 30 req / 10 min (prevents Gemini API abuse)
+const chatLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Chat rate limit exceeded. Please wait a moment.' },
+});
 
-// ─── Helper: sanitize user input ───
+// Body parsing — 2MB for general routes, 8MB for document/evidence uploads
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
+// ─── Helper: sanitize and escape user input ───
+const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
 function sanitize(str, maxLen = 1000) {
   if (typeof str !== 'string') return '';
-  return str.trim().substring(0, maxLen);
+  return str.trim().substring(0, maxLen).replace(/[&<>"']/g, c => HTML_ESCAPE[c]);
 }
 
 // ─── Helper: generate HMAC-style report ID ───
@@ -124,16 +136,13 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Runtime config for frontend (maps key injection)
+// Cache for 5 min — the config is static and doesn't change per-request
 app.get('/api/config', (req, res) => {
-  try {
-    res.json({
-      mapsApiKey: process.env.MAPS_API_KEY || '',
-      ga4MeasurementId: process.env.GA4_MEASUREMENT_ID || '',
-    });
-  } catch (err) {
-    logger.error('Config endpoint failed', { error: err.message });
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  res.set('Cache-Control', 'public, max-age=300, s-maxage=300');
+  res.json({
+    mapsApiKey: process.env.MAPS_API_KEY || '',
+    ga4MeasurementId: process.env.GA4_MEASUREMENT_ID || '',
+  });
 });
 
 // Service metadata
@@ -169,9 +178,9 @@ app.get('/api/timeline', async (req, res) => {
   }
 });
 
-// Document analysis (Gemini Vision)
+// Document analysis (Gemini Vision) — larger body limit for base64 images
 // PRIVACY: Image processed in-memory only, never stored or logged
-app.post('/api/document/analyze', async (req, res) => {
+app.post('/api/document/analyze', express.json({ limit: '8mb' }), async (req, res) => {
   try {
     const { imageBase64, mimeType } = req.body;
 
@@ -241,8 +250,8 @@ app.delete('/api/chat/:sessionId', async (req, res) => {
   }
 });
 
-// Stream chat response
-app.post('/api/chat/stream', async (req, res) => {
+// Stream chat response — strict rate limiter to prevent Gemini API abuse
+app.post('/api/chat/stream', chatLimiter, async (req, res) => {
   try {
     const sessionId = sanitize(req.body.sessionId, 100);
     const message = sanitize(req.body.message, 1000);
