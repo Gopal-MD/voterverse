@@ -17,6 +17,7 @@ const db = require('./database');
 const ai = require('./aiService');
 const translate = require('./translationService');
 const secrets = require('./config/secrets');
+const storage = require('./storageService');
 const { validateFraudReport } = require('./cloud-functions/mockFunctions');
 
 const app = express();

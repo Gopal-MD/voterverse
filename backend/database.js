@@ -5,8 +5,19 @@
  */
 
 const logger = require('./auditLogger');
+const constants = require('./config/constants');
 
-// ─── Election Timeline Data (pre-seeded) ───
+/**
+ * @typedef {Object} TimelineItem
+ * @property {number} step - Step number
+ * @property {string} title - Step title
+ * @property {string} description - Brief summary
+ * @property {string} icon - Emoji icon
+ * @property {string} date - Relative or absolute date
+ * @property {string} details - Detailed explanation
+ */
+
+/** @type {TimelineItem[]} */
 const ELECTION_TIMELINE = [
   {
     step: 1,
@@ -66,7 +77,10 @@ const ELECTION_TIMELINE = [
   },
 ];
 
-// ─── In-Memory Storage ───
+/**
+ * InMemoryDB Provider
+ * Used for development or when Firebase is unreachable.
+ */
 class InMemoryDB {
   constructor() {
     this.reports = new Map();
@@ -76,41 +90,58 @@ class InMemoryDB {
     logger.info('Database initialized in MEMORY mode');
   }
 
+  /**
+   * @param {string} id 
+   * @param {object} report 
+   */
   async saveReport(id, report) {
     this.reports.set(id, { ...report, id, createdAt: new Date().toISOString() });
     return id;
   }
 
+  /** @returns {Promise<object[]>} */
   async getReports() {
     return Array.from(this.reports.values()).sort(
       (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
     );
   }
 
+  /** @returns {Promise<TimelineItem[]>} */
   async getTimeline() {
     return this.timeline;
   }
 
+  /**
+   * @param {string} id 
+   * @param {object} session 
+   */
   async saveQuizSession(id, session) {
     this.quizSessions.set(id, { ...session, id, createdAt: new Date().toISOString() });
     return id;
   }
 
+  /** @param {string} id */
   async getQuizSession(id) {
     return this.quizSessions.get(id) || null;
   }
 
+  /**
+   * @param {string} sessionId 
+   * @param {object} message 
+   */
   async appendMessage(sessionId, message) {
     const existing = this.conversations.get(sessionId) || [];
     const updated = [...existing, { ...message, timestamp: new Date().toISOString() }];
-    this.conversations.set(sessionId, updated.slice(-50)); // keep last 50 messages
+    this.conversations.set(sessionId, updated.slice(-constants.DB.MAX_MESSAGES_PER_SESSION));
     return updated;
   }
 
+  /** @param {string} sessionId */
   async getConversation(sessionId) {
     return this.conversations.get(sessionId) || [];
   }
 
+  /** @param {string} sessionId */
   async clearConversation(sessionId) {
     this.conversations.delete(sessionId);
   }
@@ -120,8 +151,15 @@ class InMemoryDB {
   }
 }
 
-// ─── Firebase Provider ───
+/**
+ * FirebaseDB Provider
+ * Actual production persistence using Firebase Realtime Database.
+ */
 class FirebaseDB {
+  /**
+   * @param {object} admin - Firebase Admin instance
+   * @param {string} dbUrl - Database URL
+   */
   constructor(admin, dbUrl) {
     this.db = admin.database();
     logger.info('Database initialized in FIREBASE mode', { databaseURL: dbUrl });
@@ -143,9 +181,8 @@ class FirebaseDB {
 
   async getTimeline() {
     try {
-      // Timeout after 5s to avoid hanging if RTDB is slow or empty
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Firebase timeline fetch timeout')), 5000)
+        setTimeout(() => reject(new Error('Firebase timeline fetch timeout')), constants.DB.TIMELINE_TIMEOUT_MS)
       );
       const fetchPromise = this.db.ref('timeline').once('value');
       const snapshot = await Promise.race([fetchPromise, timeoutPromise]);
@@ -156,6 +193,7 @@ class FirebaseDB {
     } catch (err) {
       logger.warn('Failed to fetch timeline from Firebase, using default', { error: err.message });
     }
+    
     // Seed timeline into Firebase for next time
     try {
       await this.db.ref('timeline').set(ELECTION_TIMELINE);
@@ -179,14 +217,14 @@ class FirebaseDB {
   async appendMessage(sessionId, message) {
     try {
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Firebase timeout')), 3000)
+        setTimeout(() => reject(new Error('Firebase timeout')), constants.DB.TIMEOUT_MS)
       );
       const ref = this.db.ref(`conversations/${sessionId}/messages`);
       await Promise.race([ref.push({ ...message, timestamp: new Date().toISOString() }), timeoutPromise]);
       const snapshot = await Promise.race([ref.once('value'), timeoutPromise]);
       const msgs = [];
       snapshot.forEach(child => msgs.push(child.val()));
-      return msgs.slice(-50);
+      return msgs.slice(-constants.DB.MAX_MESSAGES_PER_SESSION);
     } catch (err) {
       logger.warn('Firebase appendMessage failed', { error: err.message });
       return [message];
@@ -196,7 +234,7 @@ class FirebaseDB {
   async getConversation(sessionId) {
     try {
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Firebase timeout')), 3000)
+        setTimeout(() => reject(new Error('Firebase timeout')), constants.DB.TIMEOUT_MS)
       );
       const snapshot = await Promise.race([this.db.ref(`conversations/${sessionId}/messages`).once('value'), timeoutPromise]);
       const msgs = [];
@@ -211,7 +249,7 @@ class FirebaseDB {
   async clearConversation(sessionId) {
     try {
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Firebase timeout')), 3000)
+        setTimeout(() => reject(new Error('Firebase timeout')), constants.DB.TIMEOUT_MS)
       );
       await Promise.race([this.db.ref(`conversations/${sessionId}`).remove(), timeoutPromise]);
     } catch (err) {
@@ -224,7 +262,10 @@ class FirebaseDB {
   }
 }
 
-// ─── Factory: create the right provider ───
+/**
+ * Factory function to create the database provider based on environment.
+ * @returns {FirebaseDB|InMemoryDB}
+ */
 function createDatabase() {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
@@ -254,7 +295,7 @@ function createDatabase() {
   return new InMemoryDB();
 }
 
-// Export singleton
 const db = createDatabase();
 module.exports = db;
 module.exports.ELECTION_TIMELINE = ELECTION_TIMELINE;
+

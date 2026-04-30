@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { trackEvent } from '../utils/analytics';
 
 const FRAUD_TYPES = [
@@ -12,6 +13,11 @@ const FRAUD_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
+/**
+ * FraudReportCenter Component
+ * Allows voters to anonymously report suspicious activities and view a transparency dashboard.
+ * @component
+ */
 export default function FraudReportCenter() {
   const [form, setForm] = useState({ description: '', location: '', fraudType: '', evidence: null });
   const [result, setResult] = useState(null);
@@ -24,6 +30,9 @@ export default function FraudReportCenter() {
     if (tab === 'dashboard') fetchReports();
   }, [tab]);
 
+  /**
+   * Fetches public anonymized reports from the backend.
+   */
   const fetchReports = async () => {
     try {
       const r = await fetch('/api/fraud/reports');
@@ -32,14 +41,20 @@ export default function FraudReportCenter() {
     } catch { setReports([]); }
   };
 
+  /**
+   * Submits the fraud report for AI classification and storage.
+   * @param {Event} e - Form submission event
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.description.trim() || form.description.trim().length < 10) {
       setError('Description must be at least 10 characters.'); return;
     }
     if (!form.location.trim()) { setError('Location is required.'); return; }
+    
     setLoading(true);
     setError('');
+
     try {
       const body = { description: form.description, location: form.location, fraudType: form.fraudType };
       if (form.evidence) {
@@ -66,31 +81,45 @@ export default function FraudReportCenter() {
     setLoading(false);
   };
 
-  const severityClass = (s) => `chip severity-${s || 'low'}`;
-
   return (
     <div className="page-container">
       <section className="hero">
-        <h2>🚨 Fraud Report Center</h2>
+        <h1 id="fraud-title">🚨 Fraud Report Center</h1>
         <p>Report suspicious election activity — your identity stays anonymous</p>
       </section>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-        <button className={`btn ${tab === 'report' ? 'btn-primary' : 'btn-outline'}`}
-          onClick={() => setTab('report')} id="tab-report">📝 File Report</button>
-        <button className={`btn ${tab === 'dashboard' ? 'btn-primary' : 'btn-outline'}`}
-          onClick={() => setTab('dashboard')} id="tab-dashboard">📊 Dashboard</button>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }} role="tablist" aria-label="Fraud center sections">
+        <button 
+          className={`btn ${tab === 'report' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => setTab('report')} 
+          id="tab-report"
+          role="tab"
+          aria-selected={tab === 'report'}
+          aria-controls="panel-report"
+        >
+          📝 File Report
+        </button>
+        <button 
+          className={`btn ${tab === 'dashboard' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => setTab('dashboard')} 
+          id="tab-dashboard"
+          role="tab"
+          aria-selected={tab === 'dashboard'}
+          aria-controls="panel-dashboard"
+        >
+          📊 Dashboard
+        </button>
       </div>
 
       {tab === 'report' && (
-        <>
+        <div id="panel-report" role="tabpanel" aria-labelledby="tab-report">
           <div className="privacy-notice" role="note">
-            <span>🔒</span>
+            <span aria-hidden="true">🔒</span>
             <span>Reports are anonymized. Evidence images are <strong>never stored</strong>. Only AI classification summaries are saved.</span>
           </div>
 
           {result ? (
-            <div className="glass-card analysis-result" aria-live="polite">
+            <div className="glass-card analysis-result" aria-live="polite" role="status">
               <h3 style={{ marginBottom: 16, color: 'var(--accent)' }}>✅ Report Submitted</h3>
               <div className="analysis-row">
                 <span className="analysis-label">Report ID</span>

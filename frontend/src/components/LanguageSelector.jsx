@@ -1,6 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import PropTypes from 'prop-types';
 import { SUPPORTED_LANGUAGES } from '../utils/translation';
 
+/**
+ * LanguageSelector Component
+ * Provides a UI to switch between regional languages.
+ * @component
+ */
 export default function LanguageSelector({ onLanguageChange }) {
   const [currentLang, setCurrentLang] = useState(() => localStorage.getItem('vv-lang') || 'en');
 
@@ -11,14 +17,14 @@ export default function LanguageSelector({ onLanguageChange }) {
   };
 
   return (
-    <div className="language-selector">
+    <div className="language-selector" role="region" aria-label="Language selection">
       <div className="glass-card lang-pill">
-        <span style={{ marginRight: 8, fontSize: '0.9rem', opacity: 0.8 }}>🌐</span>
+        <span style={{ marginRight: 8, fontSize: '0.9rem', opacity: 0.8 }} aria-hidden="true">🌐</span>
         <select 
           value={currentLang} 
           onChange={(e) => handleLangChange(e.target.value)}
           className="lang-select"
-          aria-label="Select Language"
+          aria-label="Change regional language"
         >
           {SUPPORTED_LANGUAGES.map(lang => (
             <option key={lang.code} value={lang.code}>
@@ -27,6 +33,11 @@ export default function LanguageSelector({ onLanguageChange }) {
           ))}
         </select>
       </div>
+...
+LanguageSelector.propTypes = {
+  /** Callback function triggered when the language is changed */
+  onLanguageChange: PropTypes.func.isRequired,
+};
 
       <style>{`
         .language-selector {

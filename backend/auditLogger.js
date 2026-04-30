@@ -24,6 +24,12 @@ function scrubPII(obj) {
   );
 }
 
+/**
+ * Formats and writes a structured log entry to stdout/stderr.
+ * @param {('INFO'|'WARNING'|'ERROR'|'CRITICAL'|'DEBUG')} severity - Log severity
+ * @param {string} message - Human readable message
+ * @param {object} [payload={}] - Additional structured data
+ */
 function auditLog(severity, message, payload = {}) {
   const entry = {
     severity,

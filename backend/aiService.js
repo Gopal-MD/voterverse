@@ -1,5 +1,5 @@
 /**
- * VoterVerse — AI Service (Gemini 1.5 Flash with Advanced Function Calling)
+ * VoterVerse — AI Service (Gemini 2.0 Flash with Advanced Function Calling)
  *
  * Three Function Declarations:
  * 1. explain_election_document — Vision API to explain voter cards
@@ -10,8 +10,16 @@
  */
 
 const logger = require('./auditLogger');
+const constants = require('./config/constants');
 
-// ─── Function Declarations for Gemini ───
+/**
+ * @typedef {Object} FunctionDeclaration
+ * @property {string} name - Function name
+ * @property {string} description - Function purpose
+ * @property {object} parameters - JSON Schema parameters
+ */
+
+/** @type {FunctionDeclaration[]} */
 const functionDeclarations = [
   {
     name: 'explain_election_document',
@@ -99,7 +107,9 @@ const functionDeclarations = [
 
 const tools = [{ functionDeclarations }];
 
-// ─── Mock Responses (used when no API key) ───
+/**
+ * Mock Responses used when the Gemini API is unreachable or no key is provided.
+ */
 const MOCK_RESPONSES = {
   document: {
     document_type: 'voter_card',
@@ -180,22 +190,10 @@ let genAI = null;
 let model = null;        // Function Calling model
 let chatModel = null;    // Plain chat model (no function calling)
 
-const CHAT_SYSTEM_PROMPT = `You are VoterBot, a friendly and knowledgeable AI assistant specializing in Indian elections. You help citizens understand:
-
-1. **Voter Registration** — How to register (Form 6), check/correct voter ID (Form 8), EPIC card details, NVSP portal, Aadhaar linking (Form 6B)
-2. **Voting Procedure** — How to vote, EVMs (Electronic Voting Machines), VVPAT verification, polling booth conduct, indelible ink, NOTA option
-3. **Election Rules** — Model Code of Conduct, candidate eligibility, expenditure limits, election schedule
-4. **Fraud Reporting** — cVIGIL app, ECI helpline 1950, types of election offences, legal provisions
-5. **Election Timeline** — Announcement, nomination, campaigning, polling, counting, results
-6. **Voter Rights** — Right to vote (Article 326), right to secret ballot, right to verify VVPAT slip
-
-Always be accurate, helpful, and encourage civic participation. If unsure, direct users to eci.gov.in or helpline 1950.
-
-After your answer, on a SEPARATE line starting with "SUGGESTIONS:", provide exactly 3 follow-up questions the user might want to ask, as a JSON array.
-Example: SUGGESTIONS: ["How do I check my voter ID status?", "What documents do I need at the polling booth?", "Can I vote if my name is wrong on the voter list?"]
-
-Keep your main answer concise (2-4 paragraphs). Use simple language for first-time voters.`;
-
+/**
+ * Initializes Gemini AI clients.
+ * @returns {boolean} Success status
+ */
 function initGemini() {
   if (model) return true;
   const apiKey = process.env.GEMINI_API_KEY;
@@ -204,10 +202,10 @@ function initGemini() {
     return false;
   }
   try {
-    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const { GoogleGenerativeAI } = require('@google-cloud/generative-ai');
     genAI = new GoogleGenerativeAI(apiKey);
-    model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', tools });
-    chatModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    model = genAI.getGenerativeModel({ model: constants.AI.MODEL_NAME, tools });
+    chatModel = genAI.getGenerativeModel({ model: constants.AI.MODEL_NAME });
     logger.info('Gemini AI initialized with Function Calling + Chat model');
     return true;
   } catch (err) {
@@ -216,7 +214,11 @@ function initGemini() {
   }
 }
 
-// ─── Chat: parse suggestions out of streamed text ───
+/**
+ * Parses suggestions out of Gemini text responses.
+ * @param {string} text - Raw model response
+ * @returns {string[]} Array of suggestions
+ */
 function parseSuggestions(text) {
   try {
     const match = text.match(/SUGGESTIONS:\s*(\[.*?\])/s);
@@ -231,11 +233,18 @@ function parseSuggestions(text) {
   ];
 }
 
+/**
+ * Strips the SUGGESTIONS block from the model text for display.
+ * @param {string} text 
+ * @returns {string} Cleaned text
+ */
 function stripSuggestions(text) {
   return text.replace(/\nSUGGESTIONS:.*$/s, '').trim();
 }
 
-// ─── Mock chat responses ───
+/**
+ * Mock responses for local development.
+ */
 const MOCK_CHAT_RESPONSES = {
   registration: {
     text: `To register as a voter in India, you need to follow these steps:\n\n**1. Check Eligibility**: You must be an Indian citizen aged 18 or above on the qualifying date (January 1st of the registration year).\n\n**2. Fill Form 6**: Download Form 6 from the National Voters' Service Portal (nvsp.in) or get it from your nearest Electoral Registration Office. Fill in your details including name, address, date of birth, and relationship proof.\n\n**3. Submit Documents**: Attach proof of age (birth certificate, school certificate, or passport), proof of residence (Aadhaar, utility bill, or passport), and a recent passport-size photograph.\n\n**4. Track Your Application**: After submission, you'll get an acknowledgment number to track your registration status online at nvsp.in.\n\nYou can also use the Voter Helpline App or call **1950** for assistance.`,
@@ -255,6 +264,9 @@ const MOCK_CHAT_RESPONSES = {
   },
 };
 
+/**
+ * Helper to determine mock response key based on message content.
+ */
 function getMockChatKey(message, topic) {
   const lower = message.toLowerCase();
   let key = 'default';
@@ -273,17 +285,17 @@ function getMockChatKey(message, topic) {
 }
 
 /**
- * Stream a chat response from Gemini with conversation history
- * Yields text chunks as they arrive, then a suggestions chunk
+ * Stream a chat response from Gemini with conversation history.
+ * @param {string} message - User message
+ * @param {object[]} history - Conversation history
+ * @param {string} [topic=''] - Selected topic
  */
 async function* streamChatResponse(message, history = [], topic = '') {
   initGemini();
 
-  // Mock mode fallback
   if (!chatModel) {
     const key = getMockChatKey(message, topic);
     const mock = MOCK_CHAT_RESPONSES[key];
-    // Simulate streaming by yielding words progressively
     const words = mock.text.split(' ');
     for (let i = 0; i < words.length; i += 5) {
       yield { type: 'text', chunk: words.slice(i, i + 5).join(' ') + ' ' };
@@ -294,7 +306,6 @@ async function* streamChatResponse(message, history = [], topic = '') {
   }
 
   try {
-    // Build chat history in Gemini format
     const contents = history.slice(-10).map(msg => ({
       role: msg.role === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }],
@@ -305,14 +316,12 @@ async function* streamChatResponse(message, history = [], topic = '') {
       userText = `[Topic: ${topic}] ${message}`;
     }
     
-    // Inject system prompt into the first message of the conversation
     if (contents.length === 0) {
-      userText = `System Instruction (Follow this strictly): ${CHAT_SYSTEM_PROMPT}\n\nUser Question: ${userText}`;
+      userText = `System Instruction (Follow this strictly): ${constants.AI.CHAT_SYSTEM_PROMPT}\n\nUser Question: ${userText}`;
     }
 
     contents.push({ role: 'user', parts: [{ text: userText }] });
 
-    // Use standard generateContent instead of streamGenerateContent to avoid 404 API error
     const result = await chatModel.generateContent({ contents });
     const fullText = result.response.text();
 
@@ -322,11 +331,10 @@ async function* streamChatResponse(message, history = [], topic = '') {
     const suggestions = parseSuggestions(fullText);
     yield { type: 'suggestions', suggestions };
 
-    logger.info('Chat response streamed', { topic, historyLength: history.length });
+    logger.info('Chat response generated', { topic, historyLength: history.length });
   } catch (err) {
-    logger.error('Chat streaming failed, falling back to mock', { error: err.message });
+    logger.error('Chat generation failed, falling back to mock', { error: err.message });
     
-    // Fallback to mock responses seamlessly
     const key = getMockChatKey(message, topic);
     const mock = MOCK_CHAT_RESPONSES[key];
     
@@ -339,7 +347,12 @@ async function* streamChatResponse(message, history = [], topic = '') {
   }
 }
 
-// ─── Extract function call result from Gemini response ───
+/**
+ * Extracts function call arguments from a Gemini response.
+ * @param {object} response - Gemini API response
+ * @param {string} expectedName - Expected function name
+ * @returns {object|null} Arguments or null
+ */
 function extractFunctionCall(response, expectedName) {
   try {
     const candidate = response.response.candidates[0];
@@ -349,26 +362,18 @@ function extractFunctionCall(response, expectedName) {
         return part.functionCall.args;
       }
     }
-    // If no function call, try to parse text response
     const text = response.response.text();
     if (text) {
-      try {
-        return JSON.parse(text);
-      } catch {
-        return null;
-      }
+      try { return JSON.parse(text); } catch { return null; }
     }
-  } catch {
-    return null;
-  }
+  } catch { return null; }
   return null;
 }
 
-// ─── Public API ───
-
 /**
- * Analyze an election document using Gemini Vision
- * PRIVACY: Image processed in-memory only, never stored or logged
+ * Analyze an election document using Gemini Vision.
+ * @param {string} base64Image 
+ * @param {string} [mimeType='image/jpeg']
  */
 async function analyzeElectionDocument(base64Image, mimeType = 'image/jpeg') {
   initGemini();
@@ -379,29 +384,24 @@ async function analyzeElectionDocument(base64Image, mimeType = 'image/jpeg') {
   }
 
   try {
-    const prompt = `You are an Indian election process expert. Analyze this election-related document (voter ID card, election notice, or form). 
+    const prompt = `You are an Indian election process expert. Analyze this election-related document. 
 Use the explain_election_document function to provide:
 - The document type
 - The key information found
 - What action the voter needs to take
 - Any deadline mentioned
-- Any warning or risk to the voter
-Be specific and helpful. Use simple language a first-time voter would understand.`;
+- Any warning or risk to the voter`;
 
     const result = await model.generateContent([
       prompt,
       {
-        inlineData: {
-          mimeType,
-          data: base64Image,
-        },
+        inlineData: { mimeType, data: base64Image },
       },
     ]);
 
     const fnResult = extractFunctionCall(result, 'explain_election_document');
     if (fnResult) return fnResult;
 
-    // Fallback: return text as key_information
     const text = result.response.text();
     return {
       document_type: 'unknown',
@@ -415,7 +415,8 @@ Be specific and helpful. Use simple language a first-time voter would understand
 }
 
 /**
- * Generate a quiz question about election process
+ * Generate a quiz question about the election process.
+ * @param {string} [topic='general']
  */
 async function generateQuizQuestion(topic = 'general') {
   initGemini();
@@ -429,21 +430,17 @@ async function generateQuizQuestion(topic = 'general') {
 
   try {
     const prompt = `You are an Indian election education expert. Generate a quiz question about: "${topic}".
-Use the generate_quiz_question function to create a multiple-choice question with exactly 4 options.
-Topics can include: voter registration, voting rights, election commission, election ethics, EVM machines, VVPAT, Model Code of Conduct, counting process, NOTA, etc.
-Make it educational and accurate. Vary difficulty from easy to moderate.`;
+Use the generate_quiz_question function to create a multiple-choice question with exactly 4 options.`;
 
     const result = await model.generateContent(prompt);
     const fnResult = extractFunctionCall(result, 'generate_quiz_question');
     if (fnResult) {
-      // Ensure options is array of 4
       if (Array.isArray(fnResult.options) && fnResult.options.length >= 4) {
         fnResult.options = fnResult.options.slice(0, 4);
       }
       return fnResult;
     }
 
-    // Fallback to mock
     const q = MOCK_RESPONSES.quiz[quizIndex % MOCK_RESPONSES.quiz.length];
     quizIndex++;
     return { ...q, _fallback: true };
@@ -456,7 +453,8 @@ Make it educational and accurate. Vary difficulty from easy to moderate.`;
 }
 
 /**
- * Classify a fraud report
+ * Classify a fraud report using AI.
+ * @param {string} description 
  */
 async function classifyFraudReport(description) {
   initGemini();
@@ -467,17 +465,8 @@ async function classifyFraudReport(description) {
   }
 
   try {
-    const prompt = `You are an Indian election fraud detection expert. A citizen reports the following suspicious activity:
-
-"${description}"
-
-Use the classify_fraud_report function to classify this report:
-- Determine the fraud type (booth_capturing, vote_buying, impersonation, EVM_tampering, intimidation, misinformation, or other)
-- Assess severity (low, medium, high, critical)
-- Recommend immediate action for the reporter
-- Provide relevant ECI reference or helpline
-
-Be precise and helpful. The reporter's safety is paramount.`;
+    const prompt = `You are an Indian election fraud detection expert. A citizen reports: "${description}"
+Use the classify_fraud_report function to classify this report and assess severity.`;
 
     const result = await model.generateContent(prompt);
     const fnResult = extractFunctionCall(result, 'classify_fraud_report');
