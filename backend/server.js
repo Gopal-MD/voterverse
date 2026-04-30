@@ -142,6 +142,9 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Cloud Run / Kubernetes probe alias
+app.get('/healthz', (req, res) => res.status(200).send('OK'));
+
 /**
  * GET /api/config
  * Returns client-side runtime configuration.

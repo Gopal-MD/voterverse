@@ -78,7 +78,7 @@ export default function App() {
       <div className="app-layout">
         <nav className={`sidebar ${sidebarOpen ? 'open' : ''}`} aria-label="Main navigation">
           <div className="sidebar-brand">
-            <span className="sidebar-brand-icon">🗳️</span>
+            <img src="/logo.png" alt="" className="sidebar-logo" aria-hidden="true" style={{ width: 32, height: 32, objectFit: 'contain' }} />
             <h1>VoterVerse</h1>
           </div>
           <div className="sidebar-nav" role="list">
@@ -96,6 +96,9 @@ export default function App() {
               aria-label={`Switch theme (current: ${theme})`} title={`Theme: ${theme}`}>
               {themeIcon}
             </button>
+            <div className="ai-badge" style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: 12 }}>
+              Powered by <strong>Gemini AI</strong>
+            </div>
           </div>
         </nav>
 

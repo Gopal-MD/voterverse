@@ -1,0 +1,17 @@
+{
+  "name": "VoterVerse — Election Education",
+  "short_name": "VoterVerse",
+  "description": "AI-powered platform to empower Indian voters through education and transparency.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#8b5cf6",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
