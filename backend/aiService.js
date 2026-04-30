@@ -206,8 +206,8 @@ function initGemini() {
   try {
     const { GoogleGenerativeAI } = require('@google/generative-ai');
     genAI = new GoogleGenerativeAI(apiKey);
-    model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest', tools });
-    chatModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', tools });
+    chatModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     logger.info('Gemini AI initialized with Function Calling + Chat model');
     return true;
   } catch (err) {
