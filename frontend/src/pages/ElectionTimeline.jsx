@@ -33,7 +33,8 @@ export default function ElectionTimeline() {
         body: JSON.stringify({ topic: item?.title || 'election process' }),
       });
       if (!r.ok) throw new Error('API error');
-      const d = await r.json();
+      const _d = await r.json();
+      const d = _d.success !== undefined ? (_d.success ? _d.data : _d) : _d;
       setAiDetails(prev => ({
         ...prev,
         [step]: { data: item?.details || d.question?.explanation || 'Learn more about this step.' },

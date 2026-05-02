@@ -22,6 +22,13 @@ const secrets = require('./config/secrets');
 const storage = require('./storageService');
 const { validateFraudReport } = require('./cloud-functions/mockFunctions');
 const { sanitize, generateReportId } = require('./utils/helpers');
+const validateEnv = require('./utils/validateEnv');
+const { successResponse, errorResponse } = require('./utils/responseWrapper');
+const globalErrorHandler = require('./utils/errorHandler');
+
+// Fail-Fast Environment Validation
+validateEnv();
+
 
 const app = express();
 const PORT = process.env.PORT || constants.SERVER.DEFAULT_PORT;
@@ -108,7 +115,7 @@ const limiter = rateLimit({
   max: constants.SECURITY.RATE_LIMIT_MAX_REQUESTS,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' },
+  message: errorResponse('Too many requests, please try again later.'),
 });
 app.use(constants.SERVER.API_PREFIX, limiter);
 
@@ -120,7 +127,7 @@ const chatLimiter = rateLimit({
   max: constants.SECURITY.CHAT_LIMIT_MAX_REQUESTS,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Chat rate limit exceeded. Please wait a moment.' },
+  message: errorResponse('Chat rate limit exceeded. Please wait a moment.'),
 });
 
 // Global Body Parsing - Default limit
@@ -155,18 +162,17 @@ app.use(express.urlencoded({ extended: true, limit: constants.SERVER.BODY_LIMIT_
  *                 timestamp:
  *                   type: string
  */
-app.get('/api/health', async (req, res) => {
+app.get('/api/health', async (req, res, next) => {
   try {
-    res.json({
+    res.json(successResponse({
       status: 'ok',
       firebase: db.getMode() === 'firebase',
       mode: db.getMode(),
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
-    });
+    }));
   } catch (err) {
-    logger.error('Health check failed', { error: err.message });
-    res.status(500).json({ status: 'error', error: err.message });
+    next(err);
   }
 });
 
@@ -180,7 +186,7 @@ app.get('/api/health', async (req, res) => {
  *       200:
  *         description: OK
  */
-app.get('/healthz', (req, res) => res.status(200).send('OK'));
+app.get('/healthz', (req, res) => res.status(200).json(successResponse({ status: 'ok' })));
 
 /**
  * @swagger
@@ -192,12 +198,16 @@ app.get('/healthz', (req, res) => res.status(200).send('OK'));
  *       200:
  *         description: Configuration object
  */
-app.get('/api/config', (req, res) => {
-  res.set('Cache-Control', 'public, max-age=300, s-maxage=300');
-  res.json({
-    mapsApiKey: process.env.MAPS_API_KEY || '',
-    ga4MeasurementId: process.env.GA4_MEASUREMENT_ID || '',
-  });
+app.get('/api/config', (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'public, max-age=300, s-maxage=300');
+    res.json(successResponse({
+      mapsApiKey: process.env.MAPS_API_KEY || '',
+      ga4MeasurementId: process.env.GA4_MEASUREMENT_ID || '',
+    }));
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**
@@ -220,17 +230,19 @@ app.get('/api/config', (req, res) => {
  *       200:
  *         description: Translated text
  */
-app.post('/api/translate', async (req, res) => {
+app.post('/api/translate', async (req, res, next) => {
   try {
     const { text, targetLang } = req.body;
+    
+    // Guard clause
     if (!text || !targetLang) {
-      return res.status(400).json({ error: 'Text and targetLang are required' });
+      return res.status(400).json(errorResponse('Text and targetLang are required'));
     }
+    
     const translated = await translate.translateText(text, targetLang);
-    res.json({ translated });
+    res.json(successResponse({ translated }));
   } catch (err) {
-    logger.error('API Translation failed', { error: err.message });
-    res.status(500).json({ error: 'Translation service error' });
+    next(err);
   }
 });
 
@@ -244,9 +256,9 @@ app.post('/api/translate', async (req, res) => {
  *       200:
  *         description: Service metadata
  */
-app.get('/api/metadata', (req, res) => {
+app.get('/api/metadata', (req, res, next) => {
   try {
-    res.json({
+    res.json(successResponse({
       service: process.env.K_SERVICE || 'voterverse-backend',
       revision: process.env.K_REVISION || '1.0.0',
       platform: process.env.K_SERVICE ? 'Google Cloud Run' : 'Local Development',
@@ -257,10 +269,9 @@ app.get('/api/metadata', (req, res) => {
         gcs: process.env.GCS_REPORTS_BUCKET ? 'enabled' : 'simulation',
         ga4: process.env.GA4_MEASUREMENT_ID ? 'enabled' : 'disabled',
       },
-    });
+    }));
   } catch (err) {
-    logger.error('Metadata endpoint failed', { error: err.message });
-    res.status(500).json({ error: 'Internal server error' });
+    next(err);
   }
 });
 
@@ -274,14 +285,13 @@ app.get('/api/metadata', (req, res) => {
  *       200:
  *         description: Timeline steps
  */
-app.get('/api/timeline', async (req, res) => {
+app.get('/api/timeline', async (req, res, next) => {
   try {
     const timeline = await db.getTimeline();
     logger.info('Timeline fetched', { steps: timeline.length });
-    res.json({ timeline });
+    res.json(successResponse({ timeline }));
   } catch (err) {
-    logger.error('Timeline fetch failed', { error: err.message });
-    res.status(500).json({ error: 'Failed to fetch timeline' });
+    next(err);
   }
 });
 
@@ -306,34 +316,33 @@ app.get('/api/timeline', async (req, res) => {
  *       200:
  *         description: Analysis result
  */
-app.post('/api/document/analyze', express.json({ limit: '8mb' }), async (req, res) => {
+app.post('/api/document/analyze', express.json({ limit: '8mb' }), async (req, res, next) => {
   try {
     const { imageBase64, mimeType } = req.body;
 
     if (!imageBase64) {
-      return res.status(400).json({ error: 'imageBase64 is required' });
+      return res.status(400).json(errorResponse('imageBase64 is required'));
     }
 
     // Validate image size (approximate: base64 is ~4/3 of original)
     const approximateSize = (imageBase64.length * 3) / 4;
     if (approximateSize > 5 * 1024 * 1024) {
-      return res.status(400).json({ error: 'Image size exceeds 5MB limit' });
+      return res.status(400).json(errorResponse('Image size exceeds 5MB limit'));
     }
 
     const validMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     const mime = mimeType || 'image/jpeg';
     if (!validMimeTypes.includes(mime)) {
-      return res.status(400).json({ error: 'Invalid mime type. Supported: jpeg, png, webp, gif' });
+      return res.status(400).json(errorResponse('Invalid mime type. Supported: jpeg, png, webp, gif'));
     }
 
     // PRIVACY: Image processed in-memory only, never stored or logged
     const analysis = await ai.analyzeElectionDocument(imageBase64, mime);
     logger.info('Document analyzed', { documentType: analysis.document_type });
 
-    res.json({ analysis });
+    res.json(successResponse({ analysis }));
   } catch (err) {
-    logger.error('Document analysis failed', { error: err.message });
-    res.status(500).json({ error: 'Document analysis failed' });
+    next(err);
   }
 });
 
@@ -356,15 +365,14 @@ app.post('/api/document/analyze', express.json({ limit: '8mb' }), async (req, re
  *       200:
  *         description: Quiz question object
  */
-app.post('/api/quiz/generate', async (req, res) => {
+app.post('/api/quiz/generate', async (req, res, next) => {
   try {
     const topic = sanitize(req.body.topic || 'general', 200);
     const question = await ai.generateQuizQuestion(topic);
     logger.info('Quiz question generated', { topic });
-    res.json({ question });
+    res.json(successResponse({ question }));
   } catch (err) {
-    logger.error('Quiz generation failed', { error: err.message });
-    res.status(500).json({ error: 'Quiz generation failed' });
+    next(err);
   }
 });
 
@@ -385,14 +393,13 @@ app.post('/api/quiz/generate', async (req, res) => {
  *       200:
  *         description: Array of chat messages
  */
-app.get('/api/chat/history/:sessionId', async (req, res) => {
+app.get('/api/chat/history/:sessionId', async (req, res, next) => {
   try {
     const sessionId = sanitize(req.params.sessionId, 100);
     const history = await db.getConversation(sessionId);
-    res.json({ history });
+    res.json(successResponse({ history }));
   } catch (err) {
-    logger.error('Chat history fetch failed', { error: err.message });
-    res.status(500).json({ error: 'Failed to fetch chat history' });
+    next(err);
   }
 });
 
@@ -411,14 +418,13 @@ app.get('/api/chat/history/:sessionId', async (req, res) => {
  *       200:
  *         description: Clear status
  */
-app.delete('/api/chat/:sessionId', async (req, res) => {
+app.delete('/api/chat/:sessionId', async (req, res, next) => {
   try {
     const sessionId = sanitize(req.params.sessionId, 100);
     await db.clearConversation(sessionId);
-    res.json({ status: 'cleared' });
+    res.json(successResponse({ status: 'cleared' }));
   } catch (err) {
-    logger.error('Chat clear failed', { error: err.message });
-    res.status(500).json({ error: 'Failed to clear chat' });
+    next(err);
   }
 });
 
@@ -452,7 +458,7 @@ app.post('/api/chat/stream', chatLimiter, async (req, res) => {
     const topic = sanitize(req.body.topic || '', 100);
 
     if (!sessionId || !message) {
-      return res.status(400).json({ error: 'sessionId and message are required' });
+      return res.status(400).json(errorResponse('sessionId and message are required'));
     }
 
     // Append user message
@@ -517,7 +523,7 @@ app.post('/api/chat/stream', chatLimiter, async (req, res) => {
  *       200:
  *         description: Report summary
  */
-app.post('/api/fraud/report', async (req, res) => {
+app.post('/api/fraud/report', async (req, res, next) => {
   try {
     const description = sanitize(req.body.description, 1000);
     const location = sanitize(req.body.location, 500);
@@ -527,12 +533,12 @@ app.post('/api/fraud/report', async (req, res) => {
     // 1. Basic Validation
     const validation = validateFraudReport({ description, location, fraudType });
     if (!validation.valid) {
-      return res.status(400).json({ error: validation.errors.join('; ') });
+      return res.status(400).json(errorResponse(validation.errors.join('; ')));
     }
 
     // 2. Evidence size check
     if (evidence && (evidence.length * 3) / 4 > 5 * 1024 * 1024) {
-      return res.status(400).json({ error: 'Evidence image exceeds 5MB limit' });
+      return res.status(400).json(errorResponse('Evidence image exceeds 5MB limit'));
     }
 
     // 3. AI Classification
@@ -560,7 +566,7 @@ app.post('/api/fraud/report', async (req, res) => {
 
     logger.info('Fraud report processed', { reportId, type: classification.fraud_type });
 
-    res.json({
+    res.json(successResponse({
       reportId,
       fraud_type: classification.fraud_type,
       severity: classification.severity,
@@ -568,15 +574,14 @@ app.post('/api/fraud/report', async (req, res) => {
       eci_reference: classification.eci_reference || 'ECI Helpline: 1950',
       evidenceStatus: storageResult ? 'persisted' : 'local_only',
       status: 'submitted',
-    });
+    }));
   } catch (err) {
-    logger.error('Fraud report submission failed', { error: err.message });
-    res.status(500).json({ error: 'Fraud report submission failed' });
+    next(err);
   }
 });
 
 // Transparency dashboard — public anonymized reports
-app.get('/api/fraud/reports', async (req, res) => {
+app.get('/api/fraud/reports', async (req, res, next) => {
   try {
     const reports = await db.getReports();
     // Ensure anonymized: only return classification data
@@ -588,15 +593,14 @@ app.get('/api/fraud/reports', async (req, res) => {
       status: r.status,
       createdAt: r.createdAt,
     }));
-    res.json({ reports: anonymized });
+    res.json(successResponse({ reports: anonymized }));
   } catch (err) {
-    logger.error('Fraud reports fetch failed', { error: err.message });
-    res.status(500).json({ error: 'Failed to fetch reports' });
+    next(err);
   }
 });
 
 // Seed mock data for demo
-app.post('/api/simulate', async (req, res) => {
+app.post('/api/simulate', async (req, res, next) => {
   try {
     const mockReports = [
       {
@@ -634,10 +638,9 @@ app.post('/api/simulate', async (req, res) => {
     }
 
     logger.info('Mock data seeded', { reports: mockReports.length });
-    res.json({ message: 'Mock data seeded successfully', count: mockReports.length });
+    res.json(successResponse({ message: 'Mock data seeded successfully', count: mockReports.length }));
   } catch (err) {
-    logger.error('Simulation failed', { error: err.message });
-    res.status(500).json({ error: 'Simulation failed' });
+    next(err);
   }
 });
 
@@ -645,27 +648,26 @@ app.post('/api/simulate', async (req, res) => {
  * POST /api/report/export
  * Exports all reports to a CSV file in Google Cloud Storage.
  */
-app.post('/api/report/export', async (req, res) => {
+app.post('/api/report/export', async (req, res, next) => {
   try {
     const reports = await db.getReports();
     if (reports.length === 0) {
-      return res.json({ message: 'No reports to export', exported: 0 });
+      return res.json(successResponse({ message: 'No reports to export', exported: 0 }));
     }
 
     const fileName = await storage.exportToCSV(reports);
     
     if (fileName) {
-      res.json({
+      res.json(successResponse({
         message: 'Reports exported to Google Cloud Storage',
         fileName,
         exported: reports.length,
-      });
+      }));
     } else {
-      res.status(500).json({ error: 'Export failed' });
+      res.status(500).json(errorResponse('Export failed'));
     }
   } catch (err) {
-    logger.error('Report export failed', { error: err.message });
-    res.status(500).json({ error: 'Report export failed' });
+    next(err);
   }
 });
 
@@ -673,10 +675,13 @@ app.post('/api/report/export', async (req, res) => {
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
 app.use(express.static(frontendDist));
 
+// ─── Attach Global Error Handler before fallback route ───
+app.use(globalErrorHandler);
+
 // SPA fallback — serve index.html for all non-API routes
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ error: 'API endpoint not found' });
+    return res.status(404).json(errorResponse('API endpoint not found'));
   }
   res.sendFile(path.join(frontendDist, 'index.html'), (err) => {
     if (err) {

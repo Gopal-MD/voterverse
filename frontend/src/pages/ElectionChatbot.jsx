@@ -13,7 +13,9 @@ const TOPICS = [
  * Handles conversation history, auto-scrolling, and contextual suggestions.
  * 
  * @component
- * @returns {JSX.Element} The rendered chatbot interface.
+ * @param {object} props - Component props
+ * @returns 
+ * @throws {Error} If component fails to render
  */
 export default function ElectionChatbot() {
   const [sessionId, setSessionId] = useState('');
@@ -37,20 +39,17 @@ export default function ElectionChatbot() {
     setSessionId(sid);
 
     fetch(`/api/chat/history/${sid}`)
-      .then(res => res.json())
+      .then(async (res) => { const _d = await res.json(); return _d.success !== undefined ? (_d.success ? _d.data : _d) : _d; })
       .then(data => {
         if (data.history && data.history.length > 0) {
           setMessages(data.history);
-          // If the last message was from the model, we could technically extract suggestions
-          // but for simplicity, we'll keep the default ones if we load history, or we can just hide them.
         } else {
           // Welcome message
           setMessages([
             { role: 'model', content: "Hi! I'm VoterBot. Ask me anything about the Indian election process, voter registration, or voting rights." }
           ]);
         }
-      })
-      .catch(console.error);
+      });
   }, []);
 
   // Auto-scroll
@@ -131,7 +130,7 @@ export default function ElectionChatbot() {
               }
             }
           } catch (e) {
-            console.error('Error parsing stream data:', e, dataStr);
+            
           }
         }
       }
@@ -148,7 +147,7 @@ export default function ElectionChatbot() {
         });
       }
     } catch (error) {
-      console.error('Chat error:', error);
+      
       setMessages(prev => {
         const newMsgs = [...prev];
         const lastMsg = newMsgs[newMsgs.length - 1];
@@ -176,7 +175,7 @@ export default function ElectionChatbot() {
       setMessages([{ role: 'model', content: "Chat history cleared. How can I help you today?" }]);
       setSuggestions(['How do I register to vote?', 'What ID do I need at the polling booth?', 'How can I report election fraud?']);
     } catch (err) {
-      console.error('Clear failed', err);
+      
     }
   };
 

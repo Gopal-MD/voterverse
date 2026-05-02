@@ -41,9 +41,16 @@ export function useFetch(url, options = {}) {
     setError(null);
 
     fetch(url, { signal: abortRef.current.signal })
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        return res.json();
+      .then(async (res) => {
+        let payload;
+        try { payload = await res.json(); } catch { payload = null; }
+        
+        if (!res.ok) {
+          throw new Error((payload && payload.error) ? payload.error : `HTTP ${res.status}: ${res.statusText}`);
+        }
+        
+        // Unwrap standard response structure if present
+        return (payload && payload.success !== undefined) ? (payload.success ? payload.data : payload) : payload;
       })
       .then(d => {
         setData(d);

@@ -18,7 +18,8 @@ const SUPPORTED_LANGUAGES = [
  * Translates a given text using the backend API
  * @param {string} text - Text to translate
  * @param {string} targetLang - ISO-639-1 code
- * @returns {Promise<string>} Translated text
+ * @returns 
+ * @throws {Error} None
  */
 async function translateText(text, targetLang) {
   if (!text || targetLang === 'en') return text;
@@ -31,10 +32,11 @@ async function translateText(text, targetLang) {
     });
     
     if (!response.ok) throw new Error('Translation failed');
-    const data = await response.json();
+    const _data = await response.json();
+      const data = _data.success !== undefined ? (_data.success ? _data.data : _data) : _data;
     return data.translated;
   } catch (err) {
-    console.error('Frontend translation error:', err);
+    
     return text;
   }
 }

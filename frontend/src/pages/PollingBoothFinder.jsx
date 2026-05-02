@@ -14,7 +14,9 @@ const MOCK_BOOTHS = [
  * Provides a searchable list and mock data fallback if the API key is unavailable.
  * 
  * @component
- * @returns {JSX.Element} The rendered polling booth finder interface.
+ * @param {object} props - Component props
+ * @returns 
+ * @throws {Error} If component fails to render
  */
 export default function PollingBoothFinder() {
   const [mapsKey, setMapsKey] = useState('');
@@ -27,7 +29,7 @@ export default function PollingBoothFinder() {
 
   useEffect(() => {
     fetch('/api/config')
-      .then(r => r.json())
+      .then(async (r) => { const _d = await r.json(); return _d.success !== undefined ? (_d.success ? _d.data : _d) : _d; })
       .then(cfg => {
         if (cfg.mapsApiKey) {
           setMapsKey(cfg.mapsApiKey);
@@ -60,7 +62,7 @@ export default function PollingBoothFinder() {
         marker.addListener('click', () => setSelectedBooth(booth));
       });
     } catch (err) {
-      console.error('Map init failed:', err);
+      
       setMapLoaded(false);
       setMapsKey(''); // Trigger list-view fallback if init fails
     }

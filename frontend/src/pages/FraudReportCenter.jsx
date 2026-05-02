@@ -37,7 +37,8 @@ export default function FraudReportCenter() {
   const fetchReports = async () => {
     try {
       const r = await fetch('/api/fraud/reports');
-      const data = await r.json();
+      const _data = await r.json();
+      const data = _data.success !== undefined ? (_data.success ? _data.data : _data) : _data;
       setReports(data.reports || []);
     } catch { setReports([]); }
   };
@@ -66,7 +67,8 @@ export default function FraudReportCenter() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const data = await r.json();
+      const _data = await r.json();
+      const data = _data.success !== undefined ? (_data.success ? _data.data : _data) : _data;
       if (data.error) { setError(data.error); }
       else {
         setResult(data);

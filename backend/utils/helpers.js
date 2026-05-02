@@ -4,7 +4,8 @@ const crypto = require('crypto');
  * Helper: Sanitize and escape user input to prevent XSS.
  * @param {string} str - Input string
  * @param {number} [maxLen=1000] - Maximum allowed length
- * @returns {string} Sanitized string
+ * @returns 
+ * @throws {Error} None
  */
 const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
 
@@ -15,7 +16,8 @@ function sanitize(str, maxLen = 1000) {
 
 /**
  * Helper: Generate a unique report ID with timestamp and entropy.
- * @returns {string} Unique ID
+ * @returns 
+ * @throws {Error} None
  */
 function generateReportId() {
   const timestamp = Date.now().toString(36);

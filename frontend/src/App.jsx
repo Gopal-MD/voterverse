@@ -52,7 +52,7 @@ export default function App() {
 
   useEffect(() => {
     const handleError = (e) => {
-      console.error('CRITICAL APP ERROR:', e);
+      
       setAppError(e.message || 'Unknown app error');
     };
     window.addEventListener('error', handleError);

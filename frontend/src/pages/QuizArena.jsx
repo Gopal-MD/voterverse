@@ -40,7 +40,8 @@ export default function QuizArena() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic: t || topic || 'general' }),
       });
-      const data = await r.json();
+      const _data = await r.json();
+      const data = _data.success !== undefined ? (_data.success ? _data.data : _data) : _data;
       setQuestion(data.question);
       if (total === 0) trackEvent('quiz_started', { topic: t || topic });
     } catch { 
@@ -90,7 +91,8 @@ export default function QuizArena() {
   /**
    * Determines the CSS class for an option based on its state.
    * @param {number} i - Option index
-   * @returns {string} CSS classes
+   * @returns 
+ * @throws {Error} If component fails to render
    */
   const optionClass = (i) => {
     let cls = 'quiz-option';

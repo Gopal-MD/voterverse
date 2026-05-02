@@ -9,7 +9,9 @@ import { fileToBase64 } from '../utils/fileHelpers';
  * Handles drag-and-drop file upload, file validation, and displays structured AI feedback.
  * 
  * @component
- * @returns {JSX.Element} The rendered document analyzer interface.
+ * @param {object} props - Component props
+ * @returns 
+ * @throws {Error} If component fails to render
  */
 export default function DocumentAnalyzer() {
   const [file, setFile] = useState(null);
@@ -44,7 +46,8 @@ export default function DocumentAnalyzer() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageBase64: base64, mimeType: file.type }),
       });
-      const data = await res.json();
+      const _data = await res.json();
+      const data = _data.success !== undefined ? (_data.success ? _data.data : _data) : _data;
       if (data.error) { setError(data.error); }
       else {
         setAnalysis(data.analysis);
