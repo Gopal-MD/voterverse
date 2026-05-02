@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { trackEvent } from '../utils/analytics';
+import { fileToBase64 } from '../utils/fileHelpers';
 
 const FRAUD_TYPES = [
   { value: '', label: 'Select type...' },
@@ -58,13 +59,7 @@ export default function FraudReportCenter() {
     try {
       const body = { description: form.description, location: form.location, fraudType: form.fraudType };
       if (form.evidence) {
-        const reader = new FileReader();
-        const b64 = await new Promise((res, rej) => {
-          reader.onload = () => res(reader.result.split(',')[1]);
-          reader.onerror = rej;
-          reader.readAsDataURL(form.evidence);
-        });
-        body.evidence = b64;
+        body.evidence = await fileToBase64(form.evidence);
       }
       const r = await fetch('/api/fraud/report', {
         method: 'POST',

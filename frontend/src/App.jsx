@@ -8,6 +8,7 @@ import QuizArena from './pages/QuizArena';
 import ElectionChatbot from './pages/ElectionChatbot';
 import { initGA4 } from './utils/analytics';
 import LanguageSelector from './components/LanguageSelector';
+import ErrorBoundary from './components/ErrorBoundary';
 
 
 const NAV_ITEMS = [
@@ -103,14 +104,16 @@ export default function App() {
         </nav>
 
         <main className="main-content" id="main-content">
-          <Routes>
-            <Route path="/" element={<ElectionTimeline />} />
-            <Route path="/chatbot" element={<ElectionChatbot />} />
-            <Route path="/document-analyzer" element={<DocumentAnalyzer />} />
-            <Route path="/polling-booths" element={<PollingBoothFinder />} />
-            <Route path="/fraud-report" element={<FraudReportCenter />} />
-            <Route path="/quiz" element={<QuizArena />} />
-          </Routes>
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<ElectionTimeline />} />
+              <Route path="/chatbot" element={<ElectionChatbot />} />
+              <Route path="/document-analyzer" element={<DocumentAnalyzer />} />
+              <Route path="/polling-booths" element={<PollingBoothFinder />} />
+              <Route path="/fraud-report" element={<FraudReportCenter />} />
+              <Route path="/quiz" element={<QuizArena />} />
+            </Routes>
+          </ErrorBoundary>
         </main>
         <LanguageSelector onLanguageChange={setLang} />
       </div>

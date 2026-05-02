@@ -1,6 +1,16 @@
 import { useState, useRef } from 'react';
 import { trackEvent } from '../utils/analytics';
+import { fileToBase64 } from '../utils/fileHelpers';
 
+
+/**
+ * DocumentAnalyzer Component
+ * Allows users to upload an election-related document (e.g., Voter ID) for analysis using Gemini Vision AI.
+ * Handles drag-and-drop file upload, file validation, and displays structured AI feedback.
+ * 
+ * @component
+ * @returns {JSX.Element} The rendered document analyzer interface.
+ */
 export default function DocumentAnalyzer() {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -28,25 +38,21 @@ export default function DocumentAnalyzer() {
     setLoading(true);
     setError('');
     try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const base64 = e.target.result.split(',')[1];
-        const res = await fetch('/api/document/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: base64, mimeType: file.type }),
-        });
-        const data = await res.json();
-        if (data.error) { setError(data.error); }
-        else {
-          setAnalysis(data.analysis);
-          trackEvent('document_analyzed', { document_type: data.analysis?.document_type });
-        }
-        setLoading(false);
-      };
-      reader.readAsDataURL(file);
+      const base64 = await fileToBase64(file);
+      const res = await fetch('/api/document/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, mimeType: file.type }),
+      });
+      const data = await res.json();
+      if (data.error) { setError(data.error); }
+      else {
+        setAnalysis(data.analysis);
+        trackEvent('document_analyzed', { document_type: data.analysis?.document_type });
+      }
     } catch (err) {
       setError('Analysis failed. Please try again.');
+    } finally {
       setLoading(false);
     }
   };

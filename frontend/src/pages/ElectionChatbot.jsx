@@ -7,6 +7,14 @@ const TOPICS = [
   { id: 'fraud', title: 'Report Fraud', icon: '🚨', description: 'Ask how to use cVIGIL or report election offences.' }
 ];
 
+/**
+ * ElectionChatbot Component
+ * Provides a real-time, streaming AI chat interface powered by Gemini 2.0 Flash.
+ * Handles conversation history, auto-scrolling, and contextual suggestions.
+ * 
+ * @component
+ * @returns {JSX.Element} The rendered chatbot interface.
+ */
 export default function ElectionChatbot() {
   const [sessionId, setSessionId] = useState('');
   const [messages, setMessages] = useState([]);

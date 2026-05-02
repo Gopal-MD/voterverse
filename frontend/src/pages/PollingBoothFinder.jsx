@@ -8,6 +8,14 @@ const MOCK_BOOTHS = [
   { id: 5, name: 'Government College, Lajpat Nagar', address: 'Lajpat Nagar, New Delhi', lat: 28.5693, lng: 77.2432 },
 ];
 
+/**
+ * PollingBoothFinder Component
+ * Integrates Google Maps API to locate the nearest polling booths based on user location.
+ * Provides a searchable list and mock data fallback if the API key is unavailable.
+ * 
+ * @component
+ * @returns {JSX.Element} The rendered polling booth finder interface.
+ */
 export default function PollingBoothFinder() {
   const [mapsKey, setMapsKey] = useState('');
   const [mapLoaded, setMapLoaded] = useState(false);
