@@ -11,6 +11,8 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const crypto = require('crypto');
 const path = require('path');
+const swaggerUi = require('swagger-ui-express');
+const swaggerJsdoc = require('swagger-jsdoc');
 const constants = require('./config/constants');
 const logger = require('./auditLogger');
 const db = require('./database');
@@ -19,9 +21,35 @@ const translate = require('./translationService');
 const secrets = require('./config/secrets');
 const storage = require('./storageService');
 const { validateFraudReport } = require('./cloud-functions/mockFunctions');
+const { sanitize, generateReportId } = require('./utils/helpers');
 
 const app = express();
 const PORT = process.env.PORT || constants.SERVER.DEFAULT_PORT;
+
+// ─── Swagger Configuration ───
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'VoterVerse API',
+      version: '1.2.0',
+      description: 'Interactive API Documentation for the VoterVerse platform.',
+      contact: {
+        name: 'VoterVerse Engineering',
+      },
+    },
+    servers: [
+      {
+        url: `http://localhost:${PORT}`,
+        description: 'Local development server',
+      },
+    ],
+  },
+  apis: ['./backend/server.js'], 
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // ─── Initialize Secrets ───
 // This is done before any services start to ensure keys are available
@@ -99,33 +127,33 @@ const chatLimiter = rateLimit({
 app.use(express.json({ limit: constants.SERVER.BODY_LIMIT_DEFAULT }));
 app.use(express.urlencoded({ extended: true, limit: constants.SERVER.BODY_LIMIT_DEFAULT }));
 
-/**
- * Helper: Sanitize and escape user input to prevent XSS.
- * @param {string} str - Input string
- * @param {number} [maxLen=1000] - Maximum allowed length
- * @returns {string} Sanitized string
- */
-const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-function sanitize(str, maxLen = 1000) {
-  if (typeof str !== 'string') return '';
-  return str.trim().substring(0, maxLen).replace(/[&<>"']/g, c => HTML_ESCAPE[c]);
-}
-
-/**
- * Helper: Generate a unique report ID with timestamp and entropy.
- * @returns {string} Unique ID
- */
-function generateReportId() {
-  const timestamp = Date.now().toString(36);
-  const random = crypto.randomBytes(8).toString('hex');
-  return `VV-${timestamp}-${random}`;
-}
 
 // ─── API Routes ───
 
 /**
- * GET /api/health
- * Returns service health status and current database mode.
+ * @swagger
+ * /api/health:
+ *   get:
+ *     summary: Returns service health status
+ *     description: Provides information about the service uptime, timestamp, and current database mode.
+ *     responses:
+ *       200:
+ *         description: Service is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 mode:
+ *                   type: string
+ *                   example: firebase
+ *                 uptime:
+ *                   type: number
+ *                 timestamp:
+ *                   type: string
  */
 app.get('/api/health', async (req, res) => {
   try {
@@ -142,12 +170,27 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Cloud Run / Kubernetes probe alias
+/**
+ * @swagger
+ * /healthz:
+ *   get:
+ *     summary: Cloud Run liveness probe
+ *     description: Simple endpoint for infrastructure health checks.
+ *     responses:
+ *       200:
+ *         description: OK
+ */
 app.get('/healthz', (req, res) => res.status(200).send('OK'));
 
 /**
- * GET /api/config
- * Returns client-side runtime configuration.
+ * @swagger
+ * /api/config:
+ *   get:
+ *     summary: Returns client-side configuration
+ *     description: Provides API keys and identifiers needed by the frontend.
+ *     responses:
+ *       200:
+ *         description: Configuration object
  */
 app.get('/api/config', (req, res) => {
   res.set('Cache-Control', 'public, max-age=300, s-maxage=300');
@@ -158,8 +201,24 @@ app.get('/api/config', (req, res) => {
 });
 
 /**
- * POST /api/translate
- * Translates text into a target regional language.
+ * @swagger
+ * /api/translate:
+ *   post:
+ *     summary: Translates text into a target regional language
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               text:
+ *                 type: string
+ *               targetLang:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Translated text
  */
 app.post('/api/translate', async (req, res) => {
   try {
@@ -175,7 +234,16 @@ app.post('/api/translate', async (req, res) => {
   }
 });
 
-// Service metadata
+/**
+ * @swagger
+ * /api/metadata:
+ *   get:
+ *     summary: Returns service metadata
+ *     description: Provides information about the running environment and integrated Google services status.
+ *     responses:
+ *       200:
+ *         description: Service metadata
+ */
 app.get('/api/metadata', (req, res) => {
   try {
     res.json({
@@ -196,7 +264,16 @@ app.get('/api/metadata', (req, res) => {
   }
 });
 
-// Election timeline
+/**
+ * @swagger
+ * /api/timeline:
+ *   get:
+ *     summary: Returns the 7-step election timeline
+ *     description: Provides an educational walkthrough of the Indian election process.
+ *     responses:
+ *       200:
+ *         description: Timeline steps
+ */
 app.get('/api/timeline', async (req, res) => {
   try {
     const timeline = await db.getTimeline();
@@ -208,8 +285,27 @@ app.get('/api/timeline', async (req, res) => {
   }
 });
 
-// Document analysis (Gemini Vision) — larger body limit for base64 images
-// PRIVACY: Image processed in-memory only, never stored or logged
+/**
+ * @swagger
+ * /api/document/analyze:
+ *   post:
+ *     summary: Analyzes an election document via Gemini Vision
+ *     description: Processes an image (base64) to extract key election information. PRIVACY - Image processed in-memory only.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               imageBase64:
+ *                 type: string
+ *               mimeType:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Analysis result
+ */
 app.post('/api/document/analyze', express.json({ limit: '8mb' }), async (req, res) => {
   try {
     const { imageBase64, mimeType } = req.body;
@@ -241,7 +337,25 @@ app.post('/api/document/analyze', express.json({ limit: '8mb' }), async (req, re
   }
 });
 
-// Quiz question generation
+/**
+ * @swagger
+ * /api/quiz/generate:
+ *   post:
+ *     summary: Generates an AI-powered quiz question
+ *     description: Creates a multiple-choice question on a specific election topic.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               topic:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Quiz question object
+ */
 app.post('/api/quiz/generate', async (req, res) => {
   try {
     const topic = sanitize(req.body.topic || 'general', 200);
@@ -256,7 +370,21 @@ app.post('/api/quiz/generate', async (req, res) => {
 
 // ─── Chat API ───
 
-// Get chat history
+/**
+ * @swagger
+ * /api/chat/history/{sessionId}:
+ *   get:
+ *     summary: Gets chat history for a session
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Array of chat messages
+ */
 app.get('/api/chat/history/:sessionId', async (req, res) => {
   try {
     const sessionId = sanitize(req.params.sessionId, 100);
@@ -268,7 +396,21 @@ app.get('/api/chat/history/:sessionId', async (req, res) => {
   }
 });
 
-// Clear chat history
+/**
+ * @swagger
+ * /api/chat/{sessionId}:
+ *   delete:
+ *     summary: Clears chat history for a session
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Clear status
+ */
 app.delete('/api/chat/:sessionId', async (req, res) => {
   try {
     const sessionId = sanitize(req.params.sessionId, 100);
@@ -280,7 +422,29 @@ app.delete('/api/chat/:sessionId', async (req, res) => {
   }
 });
 
-// Stream chat response — strict rate limiter to prevent Gemini API abuse
+/**
+ * @swagger
+ * /api/chat/stream:
+ *   post:
+ *     summary: Streams an AI chatbot response (SSE)
+ *     description: Provides real-time streaming response from VoterBot using Gemini.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               message:
+ *                 type: string
+ *               sessionId:
+ *                 type: string
+ *               topic:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: SSE Stream
+ */
 app.post('/api/chat/stream', chatLimiter, async (req, res) => {
   try {
     const sessionId = sanitize(req.body.sessionId, 100);
@@ -329,8 +493,29 @@ app.post('/api/chat/stream', chatLimiter, async (req, res) => {
 });
 
 /**
- * POST /api/fraud/report
- * Submits a new fraud report, classifies it with AI, and saves to GCS.
+ * @swagger
+ * /api/fraud/report:
+ *   post:
+ *     summary: Submits a new fraud report
+ *     description: Anonymously reports election fraud, classifies it with AI, and saves summary to GCS.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               description:
+ *                 type: string
+ *               location:
+ *                 type: string
+ *               fraudType:
+ *                 type: string
+ *               evidence:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Report summary
  */
 app.post('/api/fraud/report', async (req, res) => {
   try {
