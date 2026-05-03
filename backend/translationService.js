@@ -38,7 +38,7 @@ function initTranslate() {
  */
 async function translateText(text, targetLanguage) {
   if (!text || targetLanguage === 'en') return text;
-  
+
   if (!initTranslate()) {
     // Mock translation: Append [Translated to {lang}]
     return `[Mock ${targetLanguage.toUpperCase()}] ${text}`;

@@ -20,7 +20,7 @@ describe('VoterVerse Edge Cases', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // Create a fresh express app for each test if needed, 
+    // Create a fresh express app for each test if needed,
     // or just use the production server with mocked dependencies.
   });
 
@@ -40,11 +40,11 @@ describe('VoterVerse Edge Cases', () => {
     it('should handle malformed JSON from AI gracefully', async () => {
       const ai = require('../aiService');
       // Simulate extractFunctionCall returning null due to bad JSON
-      vi.spyOn(ai, 'classifyFraudReport').mockResolvedValue({ 
-        fraud_type: 'other', 
-        severity: 'low', 
+      vi.spyOn(ai, 'classifyFraudReport').mockResolvedValue({
+        fraud_type: 'other',
+        severity: 'low',
         recommended_action: 'Contact 1950',
-        _fallback: true 
+        _fallback: true,
       });
 
       const result = await ai.classifyFraudReport('some suspicious activity');
@@ -58,7 +58,7 @@ describe('VoterVerse Edge Cases', () => {
       const db = require('../database');
       // Simulate Firebase failure
       db.getMode = vi.fn().mockReturnValue('memory');
-      
+
       expect(db.getMode()).toBe('memory');
     });
 
@@ -74,15 +74,15 @@ describe('VoterVerse Edge Cases', () => {
 
   describe('Input Sanitization Edge Cases', () => {
     it('should escape dangerous HTML characters to prevent XSS', () => {
-      // We can't easily export internal helper from server.js, 
+      // We can't easily export internal helper from server.js,
       // but we can test it via an endpoint.
       // (Testing the sanitize logic independently)
       const HTML_ESCAPE = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-      const sanitize = (str) => str.replace(/[&<>"']/g, c => HTML_ESCAPE[c]);
-      
+      const sanitize = (str) => str.replace(/[&<>"']/g, (c) => HTML_ESCAPE[c]);
+
       const payload = '<script>alert("xss")</script>';
       const sanitized = sanitize(payload);
-      
+
       expect(sanitized).not.toContain('<script>');
       expect(sanitized).toContain('&lt;script&gt;');
     });

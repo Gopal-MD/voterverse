@@ -1,147 +1,84 @@
 /**
- * VoterVerse — Database Abstraction Layer (Provider Pattern)
- * Firebase Realtime Database when credentials exist, in-memory fallback otherwise.
- * Seamlessly switches without code changes.
+ * VoterVerse — Database Abstraction Layer
+ * Supports Firebase Realtime Database and In-Memory fallback.
  */
 
+const admin = require('firebase-admin');
 const logger = require('./auditLogger');
 const constants = require('./config/constants');
-
-/**
- * @typedef {Object} TimelineItem
- * @property {number} step - Step number
- * @property {string} title - Step title
- * @property {string} description - Brief summary
- * @property {string} icon - Emoji icon
- * @property {string} date - Relative or absolute date
- * @property {string} details - Detailed explanation
- */
-
-/** @type {TimelineItem[]} */
-const ELECTION_TIMELINE = [
-  {
-    step: 1,
-    title: 'Election Announcement',
-    description: 'The Election Commission of India (ECI) announces the election schedule, including key dates for nominations, campaigning, and voting. The Model Code of Conduct comes into effect immediately.',
-    icon: '📢',
-    date: 'T-45 days',
-    details: 'The announcement includes constituency delimitation, reservation status, and the number of phases. All political parties must adhere to the Model Code of Conduct from this point forward.',
-  },
-  {
-    step: 2,
-    title: 'Voter Roll Revision',
-    description: 'Electoral rolls are updated. Citizens can check their registration, apply for new voter IDs (Form 6), or request corrections (Form 8). Special camps are organized.',
-    icon: '📋',
-    date: 'T-40 days',
-    details: 'Booth Level Officers (BLOs) conduct door-to-door surveys. Citizens aged 18+ on the qualifying date can register. Photo voter slips are distributed.',
-  },
-  {
-    step: 3,
-    title: 'Nomination Filing',
-    description: 'Candidates file nomination papers with the Returning Officer. Each candidate must submit required documents, security deposit, and declare criminal cases and assets.',
-    icon: '📝',
-    date: 'T-30 days',
-    details: 'Candidates need proposers from the constituency. Affidavits declaring criminal history, assets, liabilities, and educational qualifications are mandatory under Section 33A.',
-  },
-  {
-    step: 4,
-    title: 'Scrutiny & Withdrawal',
-    description: 'Returning Officers scrutinize nominations for validity. Candidates with rejected nominations can appeal. Final list of contesting candidates is published after withdrawal deadline.',
-    icon: '🔍',
-    date: 'T-25 days',
-    details: 'Common rejection reasons: incomplete forms, insufficient proposers, disqualification under RPA 1951. Candidates may withdraw by filing Form 5.',
-  },
-  {
-    step: 5,
-    title: 'Campaign Period',
-    description: 'Political campaigning through rallies, advertisements, door-to-door canvassing, and social media. Campaigning must stop 48 hours before polling (silence period).',
-    icon: '📣',
-    date: 'T-20 to T-2 days',
-    details: 'Expenditure limits apply. ECI monitors paid news, hate speech, and social media violations. CCTV and videography teams are deployed at sensitive booths.',
-  },
-  {
-    step: 6,
-    title: 'Polling Day',
-    description: 'Voters cast their ballots using Electronic Voting Machines (EVMs) at designated polling stations. VVPAT machines provide a paper audit trail for voter verification.',
-    icon: '🗳️',
-    date: 'Election Day',
-    details: 'Polling is held from 7 AM to 6 PM typically. Voters need valid photo ID. Indelible ink is applied to prevent duplicate voting. Presiding Officers manage each booth.',
-  },
-  {
-    step: 7,
-    title: 'Counting & Results',
-    description: 'Votes are counted at designated counting centers under tight security. Results are declared constituency-by-constituency and published on the ECI website in real-time.',
-    icon: '📊',
-    date: 'T+3 days (typically)',
-    details: 'Counting begins with postal ballots, followed by EVM rounds. VVPAT slips are verified for randomly selected booths (5 per constituency). Winning candidates receive certificates.',
-  },
-];
+const ELECTION_TIMELINE = require('./config/timeline.json');
 
 /**
  * InMemoryDB Provider
- * Used for development or when Firebase is unreachable.
+ * Implementation for development or fallback scenarios.
  */
 class InMemoryDB {
   constructor() {
     this.reports = new Map();
-    this.quizSessions = new Map();
     this.conversations = new Map();
     this.timeline = ELECTION_TIMELINE;
     logger.info('Database initialized in MEMORY mode');
   }
 
   /**
-   * @param {string} id 
-   * @param {object} report 
+   * Saves a fraud report to memory.
+   * @param {string} id - Unique report ID
+   * @param {object} report - Report details
+   * @returns {Promise<string>} The report ID
    */
   async saveReport(id, report) {
     this.reports.set(id, { ...report, id, createdAt: new Date().toISOString() });
     return id;
   }
 
-  /** @returns {Promise<object[]>} */
+  /**
+   * Fetches all reports from memory.
+   * @returns {Promise<array>} Array of reports
+   */
   async getReports() {
     return Array.from(this.reports.values()).sort(
       (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
     );
   }
 
-  /** @returns {Promise<TimelineItem[]>} */
+  /**
+   * Fetches the election timeline.
+   * @returns {Promise<array>} Array of timeline steps
+   */
   async getTimeline() {
     return this.timeline;
   }
 
   /**
-   * @param {string} id 
-   * @param {object} session 
+   * Fetches conversation history.
+   * @param {string} sessionId
+   * @returns {Promise<array>} Array of messages
    */
-  async saveQuizSession(id, session) {
-    this.quizSessions.set(id, { ...session, id, createdAt: new Date().toISOString() });
-    return id;
-  }
-
-  /** @param {string} id */
-  async getQuizSession(id) {
-    return this.quizSessions.get(id) || null;
-  }
-
-  /**
-   * @param {string} sessionId 
-   * @param {object} message 
-   */
-  async appendMessage(sessionId, message) {
-    const existing = this.conversations.get(sessionId) || [];
-    const updated = [...existing, { ...message, timestamp: new Date().toISOString() }];
-    this.conversations.set(sessionId, updated.slice(-constants.DB.MAX_MESSAGES_PER_SESSION));
-    return updated;
-  }
-
-  /** @param {string} sessionId */
   async getConversation(sessionId) {
     return this.conversations.get(sessionId) || [];
   }
 
-  /** @param {string} sessionId */
+  /**
+   * Appends a message to a conversation.
+   * @param {string} sessionId
+   * @param {object} message
+   * @returns {Promise<array>} Updated history
+   */
+  async appendMessage(sessionId, message) {
+    const history = await this.getConversation(sessionId);
+    history.push({ ...message, timestamp: new Date().toISOString() });
+    // Cap history
+    if (history.length > constants.AI.MAX_CHAT_HISTORY * 2) {
+      history.splice(0, history.length - constants.AI.MAX_CHAT_HISTORY * 2);
+    }
+    this.conversations.set(sessionId, history);
+    return history;
+  }
+
+  /**
+   * Clears a conversation.
+   * @param {string} sessionId
+   */
   async clearConversation(sessionId) {
     this.conversations.delete(sessionId);
   }
@@ -153,108 +90,53 @@ class InMemoryDB {
 
 /**
  * FirebaseDB Provider
- * Actual production persistence using Firebase Realtime Database.
+ * Production-ready implementation using Firebase Admin SDK.
  */
 class FirebaseDB {
-  /**
-   * @param {object} admin - Firebase Admin instance
-   * @param {string} dbUrl - Database URL
-   */
-  constructor(admin, dbUrl) {
+  constructor() {
     this.db = admin.database();
-    logger.info('Database initialized in FIREBASE mode', { databaseURL: dbUrl });
+    logger.info('Database initialized in FIREBASE mode');
   }
 
   async saveReport(id, report) {
-    await this.db.ref(`reports/${id}`).set({ ...report, id, createdAt: new Date().toISOString() });
+    const ref = this.db.ref(`reports/${id}`);
+    const data = { ...report, id, createdAt: new Date().toISOString() };
+    await ref.set(data);
     return id;
   }
 
   async getReports() {
-    const snapshot = await this.db.ref('reports').orderByChild('createdAt').once('value');
-    const reports = [];
-    snapshot.forEach((child) => {
-      reports.push(child.val());
-    });
-    return reports.reverse();
+    const ref = this.db.ref('reports');
+    const snapshot = await ref.once('value');
+    const val = snapshot.val() || {};
+    return Object.values(val).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }
 
   async getTimeline() {
-    try {
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Firebase timeline fetch timeout')), constants.DB.TIMELINE_TIMEOUT_MS)
-      );
-      const fetchPromise = this.db.ref('timeline').once('value');
-      const snapshot = await Promise.race([fetchPromise, timeoutPromise]);
-      const data = snapshot.val();
-      if (data && Array.isArray(data) && data.length > 0) {
-        return data;
-      }
-    } catch (err) {
-      logger.warn('Failed to fetch timeline from Firebase, using default', { error: err.message });
-    }
-    
-    // Seed timeline into Firebase for next time
-    try {
-      await this.db.ref('timeline').set(ELECTION_TIMELINE);
-      logger.info('Timeline seeded to Firebase');
-    } catch (seedErr) {
-      logger.warn('Could not seed timeline to Firebase', { error: seedErr.message });
-    }
-    return ELECTION_TIMELINE;
-  }
-
-  async saveQuizSession(id, session) {
-    await this.db.ref(`quizSessions/${id}`).set({ ...session, id, createdAt: new Date().toISOString() });
-    return id;
-  }
-
-  async getQuizSession(id) {
-    const snapshot = await this.db.ref(`quizSessions/${id}`).once('value');
-    return snapshot.val();
-  }
-
-  async appendMessage(sessionId, message) {
-    try {
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Firebase timeout')), constants.DB.TIMEOUT_MS)
-      );
-      const ref = this.db.ref(`conversations/${sessionId}/messages`);
-      await Promise.race([ref.push({ ...message, timestamp: new Date().toISOString() }), timeoutPromise]);
-      const snapshot = await Promise.race([ref.once('value'), timeoutPromise]);
-      const msgs = [];
-      snapshot.forEach(child => msgs.push(child.val()));
-      return msgs.slice(-constants.DB.MAX_MESSAGES_PER_SESSION);
-    } catch (err) {
-      logger.warn('Firebase appendMessage failed', { error: err.message });
-      return [message];
-    }
+    const ref = this.db.ref('timeline');
+    const snapshot = await ref.once('value');
+    const val = snapshot.val();
+    return val || ELECTION_TIMELINE;
   }
 
   async getConversation(sessionId) {
-    try {
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Firebase timeout')), constants.DB.TIMEOUT_MS)
-      );
-      const snapshot = await Promise.race([this.db.ref(`conversations/${sessionId}/messages`).once('value'), timeoutPromise]);
-      const msgs = [];
-      snapshot.forEach(child => msgs.push(child.val()));
-      return msgs;
-    } catch (err) {
-      logger.warn('Firebase getConversation failed', { error: err.message });
-      return [];
+    const ref = this.db.ref(`conversations/${sessionId}`);
+    const snapshot = await ref.once('value');
+    return snapshot.val() || [];
+  }
+
+  async appendMessage(sessionId, message) {
+    const history = await this.getConversation(sessionId);
+    history.push({ ...message, timestamp: new Date().toISOString() });
+    if (history.length > constants.AI.MAX_CHAT_HISTORY * 2) {
+      history.splice(0, history.length - constants.AI.MAX_CHAT_HISTORY * 2);
     }
+    await this.db.ref(`conversations/${sessionId}`).set(history);
+    return history;
   }
 
   async clearConversation(sessionId) {
-    try {
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Firebase timeout')), constants.DB.TIMEOUT_MS)
-      );
-      await Promise.race([this.db.ref(`conversations/${sessionId}`).remove(), timeoutPromise]);
-    } catch (err) {
-      logger.warn('Firebase clearConversation failed', { error: err.message });
-    }
+    await this.db.ref(`conversations/${sessionId}`).remove();
   }
 
   getMode() {
@@ -262,40 +144,24 @@ class FirebaseDB {
   }
 }
 
-/**
- * Factory function to create the database provider based on environment.
- * @returns {FirebaseDB|InMemoryDB}
- */
-function createDatabase() {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-  const databaseURL = process.env.FIREBASE_DATABASE_URL;
-
-  if (projectId && clientEmail && privateKey && databaseURL) {
-    try {
-      const admin = require('firebase-admin');
-      if (!admin.apps.length) {
-        admin.initializeApp({
-          credential: admin.credential.cert({
-            projectId,
-            clientEmail,
-            privateKey: privateKey.replace(/\\n/g, '\n'),
-          }),
-          databaseURL,
-        });
-      }
-      return new FirebaseDB(admin, databaseURL);
-    } catch (err) {
-      logger.error('Firebase initialization failed, falling back to memory', { error: err.message });
-      return new InMemoryDB();
-    }
+let instance;
+try {
+  if (process.env.FIREBASE_PROJECT_ID && !admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+      }),
+      databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com`,
+    });
+    instance = new FirebaseDB();
+  } else {
+    instance = new InMemoryDB();
   }
-
-  return new InMemoryDB();
+} catch (err) {
+  logger.warn('Firebase init failed, falling back to memory', { error: err.message });
+  instance = new InMemoryDB();
 }
 
-const db = createDatabase();
-module.exports = db;
-module.exports.ELECTION_TIMELINE = ELECTION_TIMELINE;
-
+module.exports = instance;

@@ -20,7 +20,7 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     // You can also log the error to an error reporting service
-    
+
     this.setState({ errorInfo });
   }
 
@@ -30,9 +30,11 @@ class ErrorBoundary extends React.Component {
       return (
         <div className="page-container" style={{ textAlign: 'center', marginTop: '10vh' }}>
           <h2>Something went wrong.</h2>
-          <p style={{ color: 'var(--text-muted)' }}>An unexpected error occurred in this component.</p>
-          <button 
-            className="btn btn-primary" 
+          <p style={{ color: 'var(--text-muted)' }}>
+            An unexpected error occurred in this component.
+          </p>
+          <button
+            className="btn btn-primary"
             onClick={() => window.location.reload()}
             style={{ marginTop: 20 }}
           >
@@ -42,7 +44,7 @@ class ErrorBoundary extends React.Component {
       );
     }
 
-    return this.props.children; 
+    return this.props.children;
   }
 }
 

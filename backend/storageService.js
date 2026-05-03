@@ -16,7 +16,11 @@ const bucketName = process.env.GCS_REPORTS_BUCKET || 'voterverse-reports';
 function initStorage() {
   if (storage) return true;
   // If no credentials and not in production, we run in simulation mode
-  if (!process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.FIREBASE_PRIVATE_KEY && !process.env.K_SERVICE) {
+  if (
+    !process.env.GOOGLE_APPLICATION_CREDENTIALS &&
+    !process.env.FIREBASE_PRIVATE_KEY &&
+    !process.env.K_SERVICE
+  ) {
     logger.info('Storage running in SIMULATION mode');
     return false;
   }
@@ -44,15 +48,18 @@ async function uploadReportSummary(reportId, data) {
   try {
     const bucket = storage.bucket(bucketName);
     const file = bucket.file(`reports/${reportId}.summary.json`);
-    
-    await file.save(JSON.stringify({
-      ...data,
-      timestamp: new Date().toISOString(),
-      platform: 'VoterVerse'
-    }), {
-      contentType: 'application/json',
-      resumable: false,
-    });
+
+    await file.save(
+      JSON.stringify({
+        ...data,
+        timestamp: new Date().toISOString(),
+        platform: 'VoterVerse',
+      }),
+      {
+        contentType: 'application/json',
+        resumable: false,
+      }
+    );
 
     logger.info('Report summary saved to GCS', { reportId });
     return true;
@@ -72,7 +79,10 @@ async function exportToCSV(reports) {
 
   const headers = 'ReportID,FraudType,Severity,Location,Status,CreatedAt\n';
   const rows = reports
-    .map(r => `${r.id},${r.fraud_type},${r.severity},"${r.location || ''}",${r.status},${r.createdAt}`)
+    .map(
+      (r) =>
+        `${r.id},${r.fraud_type},${r.severity},"${r.location || ''}",${r.status},${r.createdAt}`
+    )
     .join('\n');
   const csv = headers + rows;
 

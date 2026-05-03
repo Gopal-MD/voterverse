@@ -12,15 +12,30 @@ class ErrorBoundary extends React.Component {
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
-  componentDidCatch(error, errorInfo) {
-    
-  }
+  componentDidCatch(error, errorInfo) {}
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: 40, textAlign: 'center', background: 'darkred', color: 'white', height: '100vh', fontFamily: 'sans-serif' }}>
+        <div
+          style={{
+            padding: 40,
+            textAlign: 'center',
+            background: 'darkred',
+            color: 'white',
+            height: '100vh',
+            fontFamily: 'sans-serif',
+          }}
+        >
           <h1 style={{ fontSize: '3rem' }}>💥 React Crash 💥</h1>
-          <pre style={{ textAlign: 'left', background: 'rgba(0,0,0,0.5)', padding: 20, marginTop: 20, whiteSpace: 'pre-wrap' }}>
+          <pre
+            style={{
+              textAlign: 'left',
+              background: 'rgba(0,0,0,0.5)',
+              padding: 20,
+              marginTop: 20,
+              whiteSpace: 'pre-wrap',
+            }}
+          >
             {this.state.error?.toString()}
             {'\n\n'}
             {this.state.error?.stack}

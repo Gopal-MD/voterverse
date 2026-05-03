@@ -42,8 +42,7 @@ function validateQuizAnswer(data) {
   const errors = [];
   if (typeof data.questionIndex !== 'number') errors.push('questionIndex is required');
   if (typeof data.selectedOption !== 'number') errors.push('selectedOption is required');
-  if (data.selectedOption < 0 || data.selectedOption > 3)
-    errors.push('selectedOption must be 0-3');
+  if (data.selectedOption < 0 || data.selectedOption > 3) errors.push('selectedOption must be 0-3');
   return {
     valid: errors.length === 0,
     errors,

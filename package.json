@@ -5,16 +5,22 @@
   "private": true,
   "scripts": {
     "dev": "concurrently -k \"npm run dev --prefix frontend\" \"npm run start:dev --prefix backend\"",
-    "test": "npm run test:mock && npm run coverage --prefix backend && npm run coverage --prefix frontend",
-    "test:mock": "node tests/mock-test-runner.js",
-    "test:e2e": "npm run test:e2e --prefix frontend",
-    "test:integration": "npm run test --prefix backend",
-    "build:frontend": "npm run build --prefix frontend",
-    "ci": "npm run test:mock && npm run test --prefix backend && npm run test --prefix frontend && npm run build:frontend",
+    "lint": "eslint . --ext .js,.jsx",
+    "lint:fix": "eslint . --ext .js,.jsx --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm run test:mock && npm run test --prefix backend && npm run test --prefix frontend",
+    "test:coverage": "npm run coverage --prefix backend && npm run coverage --prefix frontend",
+    "ci": "npm run lint && npm run format:check && npm run test:coverage && npm run build:frontend",
     "reliability": "npm run ci",
     "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "^3.8.3"
   }
 }

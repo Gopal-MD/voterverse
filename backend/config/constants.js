@@ -19,10 +19,7 @@ module.exports = {
     RATE_LIMIT_MAX_REQUESTS: 120,
     CHAT_LIMIT_WINDOW_MS: 10 * 60 * 1000, // 10 minutes
     CHAT_LIMIT_MAX_REQUESTS: 30,
-    CORS_ALLOWED_ORIGINS: [
-      'http://localhost:5173',
-      'http://localhost:8080',
-    ],
+    CORS_ALLOWED_ORIGINS: ['http://localhost:5173', 'http://localhost:8080'],
     CSP_DIRECTIVES: {
       defaultSrc: ["'self'"],
       scriptSrc: [

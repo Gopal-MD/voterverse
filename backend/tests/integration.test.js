@@ -28,7 +28,9 @@ describe('VoterVerse Integration Flows', () => {
     expect(timelineRes.body.timeline.length).toBeGreaterThan(0);
 
     // 2. Generate Quiz for a topic
-    const quizRes = await request(app).post('/api/quiz/generate').send({ topic: 'voter registration' });
+    const quizRes = await request(app)
+      .post('/api/quiz/generate')
+      .send({ topic: 'voter registration' });
     expect(quizRes.status).toBe(200);
     expect(quizRes.body.question).toBeDefined();
     expect(quizRes.body.question.options).toHaveLength(4);
@@ -39,8 +41,8 @@ describe('VoterVerse Integration Flows', () => {
     const chatRes = await request(app)
       .post('/api/chat/stream')
       .send({ sessionId, message: 'How do I register to vote?' });
-    
-    // Note: stream response is a bit tricky with supertest, 
+
+    // Note: stream response is a bit tricky with supertest,
     // but we check the first chunk or final status
     expect(chatRes.status).toBe(200);
 
@@ -55,12 +57,10 @@ describe('VoterVerse Integration Flows', () => {
     const reportData = {
       description: 'I saw someone offering money near the booth in Mumbai.',
       location: 'Mumbai Central',
-      fraudType: 'vote_buying'
+      fraudType: 'vote_buying',
     };
 
-    const res = await request(app)
-      .post('/api/fraud/report')
-      .send(reportData);
+    const res = await request(app).post('/api/fraud/report').send(reportData);
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -69,7 +69,7 @@ describe('VoterVerse Integration Flows', () => {
 
     // Verify it appears in the public dashboard
     const listRes = await request(app).get('/api/fraud/reports');
-    const report = listRes.body.reports.find(r => r.reportId === res.body.reportId);
+    const report = listRes.body.reports.find((r) => r.reportId === res.body.reportId);
     expect(report).toBeDefined();
     expect(report.location).toBe(reportData.location);
   });

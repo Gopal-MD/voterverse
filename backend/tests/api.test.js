@@ -45,7 +45,8 @@ describe('API Integration Tests', () => {
   describe('POST /api/document/analyze', () => {
     it('returns structured analysis for mock base64', async () => {
       const mockBase64 = Buffer.from('mock-image-data').toString('base64');
-      const res = await request(app).post('/api/document/analyze')
+      const res = await request(app)
+        .post('/api/document/analyze')
         .send({ imageBase64: mockBase64, mimeType: 'image/jpeg' });
       expect(res.status).toBe(200);
       expect(res.body.analysis).toHaveProperty('document_type');
@@ -59,7 +60,8 @@ describe('API Integration Tests', () => {
     });
 
     it('rejects invalid mime type', async () => {
-      const res = await request(app).post('/api/document/analyze')
+      const res = await request(app)
+        .post('/api/document/analyze')
         .send({ imageBase64: 'abc', mimeType: 'application/pdf' });
       expect(res.status).toBe(400);
     });
@@ -67,7 +69,8 @@ describe('API Integration Tests', () => {
 
   describe('POST /api/quiz/generate', () => {
     it('returns valid quiz question shape', async () => {
-      const res = await request(app).post('/api/quiz/generate')
+      const res = await request(app)
+        .post('/api/quiz/generate')
         .send({ topic: 'voter registration' });
       expect(res.status).toBe(200);
       const q = res.body.question;
@@ -82,8 +85,12 @@ describe('API Integration Tests', () => {
 
   describe('POST /api/fraud/report', () => {
     it('returns classification with reportId', async () => {
-      const res = await request(app).post('/api/fraud/report')
-        .send({ description: 'Someone distributing money near polling booth in sector 15', location: 'Delhi, India' });
+      const res = await request(app)
+        .post('/api/fraud/report')
+        .send({
+          description: 'Someone distributing money near polling booth in sector 15',
+          location: 'Delhi, India',
+        });
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('reportId');
       expect(res.body).toHaveProperty('fraud_type');
@@ -93,13 +100,15 @@ describe('API Integration Tests', () => {
     });
 
     it('rejects short description', async () => {
-      const res = await request(app).post('/api/fraud/report')
+      const res = await request(app)
+        .post('/api/fraud/report')
         .send({ description: 'short', location: 'Delhi' });
       expect(res.status).toBe(400);
     });
 
     it('rejects missing location', async () => {
-      const res = await request(app).post('/api/fraud/report')
+      const res = await request(app)
+        .post('/api/fraud/report')
         .send({ description: 'Someone is distributing cash near the booth' });
       expect(res.status).toBe(400);
     });

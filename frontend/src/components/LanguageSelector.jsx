@@ -19,14 +19,16 @@ export default function LanguageSelector({ onLanguageChange }) {
   return (
     <div className="language-selector" role="region" aria-label="Language selection">
       <div className="glass-card lang-pill">
-        <span style={{ marginRight: 8, fontSize: '0.9rem', opacity: 0.8 }} aria-hidden="true">🌐</span>
-        <select 
-          value={currentLang} 
+        <span style={{ marginRight: 8, fontSize: '0.9rem', opacity: 0.8 }} aria-hidden="true">
+          🌐
+        </span>
+        <select
+          value={currentLang}
           onChange={(e) => handleLangChange(e.target.value)}
           className="lang-select"
           aria-label="Change regional language"
         >
-          {SUPPORTED_LANGUAGES.map(lang => (
+          {SUPPORTED_LANGUAGES.map((lang) => (
             <option key={lang.code} value={lang.code}>
               {lang.native} ({lang.name})
             </option>

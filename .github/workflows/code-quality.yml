@@ -1,0 +1,44 @@
+name: VoterVerse Code Quality
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install Root Dependencies
+        run: npm install
+
+      - name: Install Frontend/Backend Dependencies
+        run: |
+          npm install --prefix backend
+          npm install --prefix frontend
+
+      - name: ESLint Verification
+        run: npm run lint
+
+      - name: Prettier Format Check
+        run: npm run format:check
+
+      - name: Execute Tests with Coverage
+        run: npm run test:coverage
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true

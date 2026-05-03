@@ -1,0 +1,58 @@
+[
+  {
+    "step": 1,
+    "title": "Election Announcement",
+    "description": "The Election Commission of India (ECI) announces the election schedule, including key dates for nominations, campaigning, and voting. The Model Code of Conduct comes into effect immediately.",
+    "icon": "📢",
+    "date": "T-45 days",
+    "details": "The announcement includes constituency delimitation, reservation status, and the number of phases. All political parties must adhere to the Model Code of Conduct from this point forward."
+  },
+  {
+    "step": 2,
+    "title": "Voter Roll Revision",
+    "description": "Electoral rolls are updated. Citizens can check their registration, apply for new voter IDs (Form 6), or request corrections (Form 8). Special camps are organized.",
+    "icon": "📋",
+    "date": "T-40 days",
+    "details": "Booth Level Officers (BLOs) conduct door-to-door surveys. Citizens aged 18+ on the qualifying date can register. Photo voter slips are distributed."
+  },
+  {
+    "step": 3,
+    "title": "Nomination Filing",
+    "description": "Candidates file nomination papers with the Returning Officer. Each candidate must submit required documents, security deposit, and declare criminal cases and assets.",
+    "icon": "📝",
+    "date": "T-30 days",
+    "details": "Candidates need proposers from the constituency. Affidavits declaring criminal history, assets, liabilities, and educational qualifications are mandatory under Section 33A."
+  },
+  {
+    "step": 4,
+    "title": "Scrutiny & Withdrawal",
+    "description": "Returning Officers scrutinize nominations for validity. Candidates with rejected nominations can appeal. Final list of contesting candidates is published after withdrawal deadline.",
+    "icon": "🔍",
+    "date": "T-25 days",
+    "details": "Common rejection reasons: incomplete forms, insufficient proposers, disqualification under RPA 1951. Candidates may withdraw by filing Form 5."
+  },
+  {
+    "step": 5,
+    "title": "Campaign Period",
+    "description": "Political campaigning through rallies, advertisements, door-to-door canvassing, and social media. Campaigning must stop 48 hours before polling (silence period).",
+    "icon": "📣",
+    "date": "T-20 to T-2 days",
+    "details": "Expenditure limits apply. ECI monitors paid news, hate speech, and social media violations. CCTV and videography teams are deployed at sensitive booths."
+  },
+  {
+    "step": 6,
+    "title": "Polling Day",
+    "description": "Voters cast their ballots using Electronic Voting Machines (EVMs) at designated polling stations. VVPAT machines provide a paper audit trail for voter verification.",
+    "icon": "🗳️",
+    "date": "Election Day",
+    "details": "Polling is held from 7 AM to 6 PM typically. Voters need valid photo ID. Indelible ink is applied to prevent duplicate voting. Presiding Officers manage each booth."
+  },
+  {
+    "step": 7,
+    "title": "Counting & Results",
+    "description": "Votes are counted at designated counting centers under tight security. Results are declared constituency-by-constituency and published on the ECI website in real-time.",
+    "icon": "📊",
+    "date": "T+3 days (typically)",
+    "details": "Counting begins with postal ballots, followed by EVM rounds. VVPAT slips are verified for randomly selected booths (5 per constituency). Winning candidates receive certificates."
+  }
+]

@@ -29,9 +29,9 @@ async function loadSecret(secretName, version = 'latest') {
     logger.info('Secret loaded from Secret Manager', { secretName });
     return payload;
   } catch (err) {
-    logger.warn('Failed to load secret from Secret Manager, falling back to ENV', { 
-      secretName, 
-      error: err.message 
+    logger.warn('Failed to load secret from Secret Manager, falling back to ENV', {
+      secretName,
+      error: err.message,
     });
     return process.env[secretName] || null;
   }
@@ -45,7 +45,7 @@ async function initSecrets() {
     'GEMINI_API_KEY',
     'FIREBASE_PRIVATE_KEY',
     'FIREBASE_CLIENT_EMAIL',
-    'MAPS_API_KEY'
+    'MAPS_API_KEY',
   ];
 
   for (const s of secrets) {
@@ -56,5 +56,5 @@ async function initSecrets() {
 
 module.exports = {
   initSecrets,
-  loadSecret
+  loadSecret,
 };

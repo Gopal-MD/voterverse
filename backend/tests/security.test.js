@@ -29,7 +29,8 @@ describe('Security Tests', () => {
   describe('Input Validation', () => {
     it('truncates description over 1000 chars', async () => {
       const longDesc = 'A'.repeat(2000);
-      const res = await request(app).post('/api/fraud/report')
+      const res = await request(app)
+        .post('/api/fraud/report')
         .send({ description: longDesc, location: 'Test Location' });
       // Should still work (truncated to 1000)
       expect(res.status).toBe(200);
@@ -37,7 +38,8 @@ describe('Security Tests', () => {
 
     it('rejects image over 5MB', async () => {
       const bigImage = 'A'.repeat(7 * 1024 * 1024); // ~7MB in base64
-      const res = await request(app).post('/api/document/analyze')
+      const res = await request(app)
+        .post('/api/document/analyze')
         .send({ imageBase64: bigImage, mimeType: 'image/jpeg' });
       expect(res.status).toBe(400);
       expect(res.body.error).toContain('5MB');
@@ -49,7 +51,8 @@ describe('Security Tests', () => {
     });
 
     it('handles wrong content types gracefully', async () => {
-      const res = await request(app).post('/api/document/analyze')
+      const res = await request(app)
+        .post('/api/document/analyze')
         .send({ imageBase64: 'test', mimeType: 'text/plain' });
       expect(res.status).toBe(400);
     });
@@ -67,17 +70,18 @@ describe('Security Tests', () => {
 
   describe('CORS', () => {
     it('allows localhost origin', async () => {
-      const res = await request(app).get('/api/health')
-        .set('Origin', 'http://localhost:5173');
+      const res = await request(app).get('/api/health').set('Origin', 'http://localhost:5173');
       expect(res.status).toBe(200);
     });
   });
 
   describe('Report ID Security', () => {
     it('generates non-sequential HMAC-style report IDs', async () => {
-      const res1 = await request(app).post('/api/fraud/report')
+      const res1 = await request(app)
+        .post('/api/fraud/report')
         .send({ description: 'Test suspicious activity report one', location: 'Delhi' });
-      const res2 = await request(app).post('/api/fraud/report')
+      const res2 = await request(app)
+        .post('/api/fraud/report')
         .send({ description: 'Test suspicious activity report two', location: 'Mumbai' });
       expect(res1.body.reportId).toMatch(/^VV-/);
       expect(res2.body.reportId).toMatch(/^VV-/);

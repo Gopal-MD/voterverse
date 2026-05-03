@@ -16,7 +16,7 @@ function scrubPII(obj) {
   if (!obj || typeof obj !== 'object') return obj;
   return Object.fromEntries(
     Object.entries(obj).map(([k, v]) => {
-      if (PII_KEYS.some(key => k.toLowerCase().includes(key.toLowerCase()))) {
+      if (PII_KEYS.some((key) => k.toLowerCase().includes(key.toLowerCase()))) {
         return [k, '[REDACTED]'];
       }
       return [k, typeof v === 'object' ? scrubPII(v) : v];

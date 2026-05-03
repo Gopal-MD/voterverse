@@ -1,7 +1,37 @@
 [
-  { "id": "V001", "name": "Aarav Sharma", "age": 22, "constituency": "New Delhi", "epicNo": "XYZ1234567" },
-  { "id": "V002", "name": "Priya Patel", "age": 18, "constituency": "Mumbai North", "epicNo": "ABC9876543" },
-  { "id": "V003", "name": "Rahul Verma", "age": 35, "constituency": "Lucknow", "epicNo": "DEF5551234" },
-  { "id": "V004", "name": "Ananya Iyer", "age": 45, "constituency": "Chennai Central", "epicNo": "GHI7778899" },
-  { "id": "V005", "name": "Kabir Singh", "age": 28, "constituency": "Jaipur Rural", "epicNo": "JKL3334455" }
+  {
+    "id": "V001",
+    "name": "Aarav Sharma",
+    "age": 22,
+    "constituency": "New Delhi",
+    "epicNo": "XYZ1234567"
+  },
+  {
+    "id": "V002",
+    "name": "Priya Patel",
+    "age": 18,
+    "constituency": "Mumbai North",
+    "epicNo": "ABC9876543"
+  },
+  {
+    "id": "V003",
+    "name": "Rahul Verma",
+    "age": 35,
+    "constituency": "Lucknow",
+    "epicNo": "DEF5551234"
+  },
+  {
+    "id": "V004",
+    "name": "Ananya Iyer",
+    "age": 45,
+    "constituency": "Chennai Central",
+    "epicNo": "GHI7778899"
+  },
+  {
+    "id": "V005",
+    "name": "Kabir Singh",
+    "age": 28,
+    "constituency": "Jaipur Rural",
+    "epicNo": "JKL3334455"
+  }
 ]

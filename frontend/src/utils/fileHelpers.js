@@ -1,7 +1,7 @@
 /**
  * Converts a File object to a Base64 string for API transmission.
  * @param {File} file - The file to convert
- * @returns 
+ * @returns
  * @throws {Error} None
  */
 export function fileToBase64(file) {

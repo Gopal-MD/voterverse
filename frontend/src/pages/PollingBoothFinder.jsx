@@ -1,21 +1,51 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 const MOCK_BOOTHS = [
-  { id: 1, name: 'Government School, Sector 15', address: 'Sector 15, Noida, UP', lat: 28.5855, lng: 77.3100 },
-  { id: 2, name: 'Community Hall, Nehru Place', address: 'Nehru Place, New Delhi', lat: 28.5491, lng: 77.2533 },
-  { id: 3, name: 'Municipal Ward Office, Connaught Place', address: 'CP, New Delhi', lat: 28.6315, lng: 77.2167 },
-  { id: 4, name: 'Primary School, Sarojini Nagar', address: 'Sarojini Nagar, New Delhi', lat: 28.5744, lng: 77.2001 },
-  { id: 5, name: 'Government College, Lajpat Nagar', address: 'Lajpat Nagar, New Delhi', lat: 28.5693, lng: 77.2432 },
+  {
+    id: 1,
+    name: 'Government School, Sector 15',
+    address: 'Sector 15, Noida, UP',
+    lat: 28.5855,
+    lng: 77.31,
+  },
+  {
+    id: 2,
+    name: 'Community Hall, Nehru Place',
+    address: 'Nehru Place, New Delhi',
+    lat: 28.5491,
+    lng: 77.2533,
+  },
+  {
+    id: 3,
+    name: 'Municipal Ward Office, Connaught Place',
+    address: 'CP, New Delhi',
+    lat: 28.6315,
+    lng: 77.2167,
+  },
+  {
+    id: 4,
+    name: 'Primary School, Sarojini Nagar',
+    address: 'Sarojini Nagar, New Delhi',
+    lat: 28.5744,
+    lng: 77.2001,
+  },
+  {
+    id: 5,
+    name: 'Government College, Lajpat Nagar',
+    address: 'Lajpat Nagar, New Delhi',
+    lat: 28.5693,
+    lng: 77.2432,
+  },
 ];
 
 /**
  * PollingBoothFinder Component
  * Integrates Google Maps API to locate the nearest polling booths based on user location.
  * Provides a searchable list and mock data fallback if the API key is unavailable.
- * 
+ *
  * @component
  * @param {object} props - Component props
- * @returns 
+ * @returns
  * @throws {Error} If component fails to render
  */
 export default function PollingBoothFinder() {
@@ -27,42 +57,59 @@ export default function PollingBoothFinder() {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
 
+  const loadMapsScript = useCallback((key) => {
+    if (window.google?.maps) {
+      setMapLoaded(true);
+      initMap();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=marker&callback=initVVMap`;
+    script.async = true;
+    window.initVVMap = () => {
+      setMapLoaded(true);
+      initMap();
+    };
+    document.head.appendChild(script);
+  }, []);
+
   useEffect(() => {
     fetch('/api/config')
-      .then(async (r) => { const _d = await r.json(); return _d.success !== undefined ? (_d.success ? _d.data : _d) : _d; })
-      .then(cfg => {
+      .then(async (r) => {
+        const _d = await r.json();
+        return _d.success !== undefined ? (_d.success ? _d.data : _d) : _d;
+      })
+      .then((cfg) => {
         if (cfg.mapsApiKey) {
           setMapsKey(cfg.mapsApiKey);
           loadMapsScript(cfg.mapsApiKey);
         }
       })
       .catch(() => {});
-  }, []);
-
-  const loadMapsScript = (key) => {
-    if (window.google?.maps) { setMapLoaded(true); initMap(); return; }
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=marker&callback=initVVMap`;
-    script.async = true;
-    window.initVVMap = () => { setMapLoaded(true); initMap(); };
-    document.head.appendChild(script);
-  };
+  }, [loadMapsScript]);
 
   const initMap = () => {
     try {
       if (!mapRef.current || !window.google?.maps) return;
-      const center = userLocation || { lat: 28.6139, lng: 77.2090 };
+      const center = userLocation || { lat: 28.6139, lng: 77.209 };
       const map = new window.google.maps.Map(mapRef.current, {
-        center, zoom: 12, mapId: 'voterverse-map',
-        styles: [{ featureType: 'all', elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] }],
+        center,
+        zoom: 12,
+        mapId: 'voterverse-map',
+        styles: [
+          { featureType: 'all', elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+        ],
       });
       mapInstanceRef.current = map;
-      MOCK_BOOTHS.forEach(booth => {
-        const marker = new window.google.maps.Marker({ position: { lat: booth.lat, lng: booth.lng }, map, title: booth.name });
+      MOCK_BOOTHS.forEach((booth) => {
+        const marker = new window.google.maps.Marker({
+          position: { lat: booth.lat, lng: booth.lng },
+          map,
+          title: booth.name,
+        });
         marker.addListener('click', () => setSelectedBooth(booth));
       });
-    } catch (err) {
-      
+    } catch {
       setMapLoaded(false);
       setMapsKey(''); // Trigger list-view fallback if init fails
     }
@@ -70,7 +117,7 @@ export default function PollingBoothFinder() {
 
   const getUserLocation = () => {
     if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(pos => {
+    navigator.geolocation.getCurrentPosition((pos) => {
       const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       setUserLocation(loc);
       if (mapInstanceRef.current) mapInstanceRef.current.panTo(loc);
@@ -83,9 +130,10 @@ export default function PollingBoothFinder() {
     window.open(`https://www.google.com/maps/dir/${origin}/${dest}`, '_blank');
   };
 
-  const filtered = MOCK_BOOTHS.filter(b =>
-    b.name.toLowerCase().includes(search.toLowerCase()) ||
-    b.address.toLowerCase().includes(search.toLowerCase())
+  const filtered = MOCK_BOOTHS.filter(
+    (b) =>
+      b.name.toLowerCase().includes(search.toLowerCase()) ||
+      b.address.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -96,20 +144,45 @@ export default function PollingBoothFinder() {
       </section>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <label htmlFor="booth-search" className="form-label" style={{ width: '100%' }}>Search by name or area</label>
-        <input id="booth-search" type="text" className="form-input" placeholder="Enter constituency or area..."
-          value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 200 }} />
-        <button className="btn btn-primary" onClick={getUserLocation}>📍 Use My Location</button>
+        <label htmlFor="booth-search" className="form-label" style={{ width: '100%' }}>
+          Search by name or area
+        </label>
+        <input
+          id="booth-search"
+          type="text"
+          className="form-input"
+          placeholder="Enter constituency or area..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ flex: 1, minWidth: 200 }}
+        />
+        <button className="btn btn-primary" onClick={getUserLocation}>
+          📍 Use My Location
+        </button>
       </div>
 
       {mapsKey ? (
         <div style={{ position: 'relative' }}>
-          {!mapLoaded && <p className="loading-pulse" style={{ padding: 20, position: 'absolute', top: 0, left: 0, zIndex: 10 }}>Loading map...</p>}
-          <div role="region" aria-label="Polling Booth Map" className="map-container" ref={mapRef}></div>
+          {!mapLoaded && (
+            <p
+              className="loading-pulse"
+              style={{ padding: 20, position: 'absolute', top: 0, left: 0, zIndex: 10 }}
+            >
+              Loading map...
+            </p>
+          )}
+          <div
+            role="region"
+            aria-label="Polling Booth Map"
+            className="map-container"
+            ref={mapRef}
+          ></div>
         </div>
       ) : (
         <div className="glass-card" style={{ marginBottom: 20 }}>
-          <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>📍 Map unavailable — showing list view</p>
+          <p style={{ color: 'var(--text-muted)', marginBottom: 12 }}>
+            📍 Map unavailable — showing list view
+          </p>
         </div>
       )}
 
@@ -117,23 +190,47 @@ export default function PollingBoothFinder() {
         <div className="glass-card" style={{ marginTop: 20 }} aria-live="polite">
           <h3>{selectedBooth.name}</h3>
           <p style={{ color: 'var(--text-muted)', margin: '8px 0' }}>{selectedBooth.address}</p>
-          <button className="btn btn-accent btn-sm" onClick={() => getDirections(selectedBooth)}>🧭 Get Directions</button>
+          <button className="btn btn-accent btn-sm" onClick={() => getDirections(selectedBooth)}>
+            🧭 Get Directions
+          </button>
         </div>
       )}
 
       <h3 style={{ marginTop: 28, marginBottom: 16 }}>Nearby Polling Stations</h3>
       <div style={{ display: 'grid', gap: 12 }}>
-        {filtered.map(booth => (
-          <div key={booth.id} className="glass-card" style={{ cursor: 'pointer' }}
-            onClick={() => setSelectedBooth(booth)} tabIndex={0}
-            onKeyDown={e => { if (e.key === 'Enter') setSelectedBooth(booth); }}
-            role="button" aria-label={`Select ${booth.name}`}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        {filtered.map((booth) => (
+          <div
+            key={booth.id}
+            className="glass-card"
+            style={{ cursor: 'pointer' }}
+            onClick={() => setSelectedBooth(booth)}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') setSelectedBooth(booth);
+            }}
+            role="button"
+            aria-label={`Select ${booth.name}`}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 8,
+              }}
+            >
               <div>
                 <h4 style={{ fontSize: '0.95rem' }}>{booth.name}</h4>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{booth.address}</p>
               </div>
-              <button className="btn btn-outline btn-sm" onClick={e => { e.stopPropagation(); getDirections(booth); }}>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  getDirections(booth);
+                }}
+              >
                 🧭 Directions
               </button>
             </div>

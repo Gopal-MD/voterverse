@@ -9,8 +9,13 @@ let passed = 0;
 let failed = 0;
 
 function assert(condition, name) {
-  if (condition) { passed++; console.log(`  ✅ PASS: ${name}`); }
-  else { failed++; console.log(`  ❌ FAIL: ${name}`); }
+  if (condition) {
+    passed++;
+    console.log(`  ✅ PASS: ${name}`);
+  } else {
+    failed++;
+    console.log(`  ❌ FAIL: ${name}`);
+  }
 }
 
 console.log('\n🗳️  VoterVerse Mock Test Runner\n' + '═'.repeat(50));
@@ -23,7 +28,10 @@ assert(ELECTION_TIMELINE.length === 7, 'Timeline has 7 steps');
 ELECTION_TIMELINE.forEach((step, i) => {
   assert(typeof step.step === 'number', `Step ${i + 1} has numeric step`);
   assert(typeof step.title === 'string' && step.title.length > 0, `Step ${i + 1} has title`);
-  assert(typeof step.description === 'string' && step.description.length > 0, `Step ${i + 1} has description`);
+  assert(
+    typeof step.description === 'string' && step.description.length > 0,
+    `Step ${i + 1} has description`
+  );
   assert(typeof step.icon === 'string', `Step ${i + 1} has icon`);
   assert(typeof step.date === 'string', `Step ${i + 1} has date`);
   assert(typeof step.details === 'string', `Step ${i + 1} has details`);
@@ -36,20 +44,43 @@ const quizMocks = MOCK_RESPONSES.quiz;
 assert(Array.isArray(quizMocks), 'Quiz mock is an array');
 assert(quizMocks.length >= 3, 'At least 3 mock quiz questions');
 quizMocks.forEach((q, i) => {
-  assert(typeof q.question === 'string' && q.question.length > 0, `Quiz ${i + 1} has question text`);
+  assert(
+    typeof q.question === 'string' && q.question.length > 0,
+    `Quiz ${i + 1} has question text`
+  );
   assert(Array.isArray(q.options) && q.options.length === 4, `Quiz ${i + 1} has exactly 4 options`);
-  assert(typeof q.correct_index === 'number' && q.correct_index >= 0 && q.correct_index <= 3, `Quiz ${i + 1} has valid correct_index`);
-  assert(typeof q.explanation === 'string' && q.explanation.length > 0, `Quiz ${i + 1} has explanation`);
+  assert(
+    typeof q.correct_index === 'number' && q.correct_index >= 0 && q.correct_index <= 3,
+    `Quiz ${i + 1} has valid correct_index`
+  );
+  assert(
+    typeof q.explanation === 'string' && q.explanation.length > 0,
+    `Quiz ${i + 1} has explanation`
+  );
 });
 
 // ─── Test 3: Fraud Classification Schema ───
 console.log('\n🚨 Test Suite: Fraud Classification Schema');
 const fraudMock = MOCK_RESPONSES.fraud;
 assert(typeof fraudMock.fraud_type === 'string', 'Fraud mock has fraud_type');
-const validTypes = ['booth_capturing', 'vote_buying', 'impersonation', 'EVM_tampering', 'intimidation', 'misinformation', 'other'];
+const validTypes = [
+  'booth_capturing',
+  'vote_buying',
+  'impersonation',
+  'EVM_tampering',
+  'intimidation',
+  'misinformation',
+  'other',
+];
 assert(validTypes.includes(fraudMock.fraud_type), 'fraud_type is a valid enum value');
-assert(['low', 'medium', 'high', 'critical'].includes(fraudMock.severity), 'severity is valid enum');
-assert(typeof fraudMock.recommended_action === 'string' && fraudMock.recommended_action.length > 0, 'Has recommended_action');
+assert(
+  ['low', 'medium', 'high', 'critical'].includes(fraudMock.severity),
+  'severity is valid enum'
+);
+assert(
+  typeof fraudMock.recommended_action === 'string' && fraudMock.recommended_action.length > 0,
+  'Has recommended_action'
+);
 assert(typeof fraudMock.eci_reference === 'string', 'Has eci_reference');
 
 // ─── Test 4: Document Analysis Schema ───
@@ -61,8 +92,14 @@ assert(typeof docMock.required_action === 'string', 'Has required_action');
 
 // ─── Test 5: Mock Cloud Function Validators ───
 console.log('\n☁️  Test Suite: Cloud Function Validators');
-const { validateFraudReport, validateQuizAnswer } = require(path.resolve(__dirname, '..', 'backend', 'cloud-functions', 'mockFunctions'));
-const validReport = validateFraudReport({ description: 'Someone is buying votes near booth 12', location: 'Delhi', fraudType: 'vote_buying' });
+const { validateFraudReport, validateQuizAnswer } = require(
+  path.resolve(__dirname, '..', 'backend', 'cloud-functions', 'mockFunctions')
+);
+const validReport = validateFraudReport({
+  description: 'Someone is buying votes near booth 12',
+  location: 'Delhi',
+  fraudType: 'vote_buying',
+});
 assert(validReport.valid === true, 'Valid fraud report passes validation');
 const invalidReport = validateFraudReport({ description: 'short', location: '' });
 assert(invalidReport.valid === false, 'Invalid fraud report fails validation');

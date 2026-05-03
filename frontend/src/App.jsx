@@ -10,7 +10,6 @@ import { initGA4 } from './utils/analytics';
 import LanguageSelector from './components/LanguageSelector';
 import ErrorBoundary from './components/ErrorBoundary';
 
-
 const NAV_ITEMS = [
   { path: '/', label: 'Election Timeline', icon: '📅' },
   { path: '/chatbot', label: 'AI Chatbot', icon: '🤖' },
@@ -30,8 +29,10 @@ export default function App() {
   useEffect(() => {
     // Load GA4 config from backend
     fetch('/api/config')
-      .then(r => r.json())
-      .then(cfg => { if (cfg.ga4MeasurementId) initGA4(cfg.ga4MeasurementId); })
+      .then((r) => r.json())
+      .then((cfg) => {
+        if (cfg.ga4MeasurementId) initGA4(cfg.ga4MeasurementId);
+      })
       .catch(() => {});
   }, []);
 
@@ -41,7 +42,9 @@ export default function App() {
     localStorage.setItem('vv-theme', theme);
   }, [theme]);
 
-  useEffect(() => { setSidebarOpen(false); }, [location]);
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location]);
 
   const cycleTheme = () => {
     const order = ['dark', 'light', 'high-contrast'];
@@ -52,7 +55,6 @@ export default function App() {
 
   useEffect(() => {
     const handleError = (e) => {
-      
       setAppError(e.message || 'Unknown app error');
     };
     window.addEventListener('error', handleError);
@@ -61,40 +63,79 @@ export default function App() {
 
   if (appError) {
     return (
-      <div style={{ padding: 40, textAlign: 'center', background: 'red', color: 'white', height: '100vh', zIndex: 99999, position: 'relative' }}>
+      <div
+        style={{
+          padding: 40,
+          textAlign: 'center',
+          background: 'red',
+          color: 'white',
+          height: '100vh',
+          zIndex: 99999,
+          position: 'relative',
+        }}
+      >
         <h1 style={{ fontSize: '3rem' }}>🚨 CRITICAL ERROR 🚨</h1>
         <p style={{ fontSize: '1.5rem', margin: '20px 0' }}>{appError}</p>
-        <button className="btn btn-primary" onClick={() => { localStorage.clear(); window.location.reload(); }}>Reset & Reload</button>
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            localStorage.clear();
+            window.location.reload();
+          }}
+        >
+          Reset & Reload
+        </button>
       </div>
     );
   }
 
   return (
     <>
-      <a href="#main-content" className="skip-link">Skip to main content</a>
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
 
-      <button className="mobile-menu-btn" onClick={() => setSidebarOpen(o => !o)}
-        aria-label="Toggle navigation menu">☰</button>
+      <button
+        className="mobile-menu-btn"
+        onClick={() => setSidebarOpen((o) => !o)}
+        aria-label="Toggle navigation menu"
+      >
+        ☰
+      </button>
 
       <div className="app-layout">
         <nav className={`sidebar ${sidebarOpen ? 'open' : ''}`} aria-label="Main navigation">
           <div className="sidebar-brand">
-            <img src="/logo.png" alt="" className="sidebar-logo" aria-hidden="true" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+            <img
+              src="/logo.png"
+              alt=""
+              className="sidebar-logo"
+              aria-hidden="true"
+              style={{ width: 32, height: 32, objectFit: 'contain' }}
+            />
             <h1>VoterVerse</h1>
           </div>
           <div className="sidebar-nav" role="list">
-            {NAV_ITEMS.map(item => (
-              <NavLink key={item.path} to={item.path} end={item.path === '/'}
+            {NAV_ITEMS.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.path === '/'}
                 className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-                role="listitem">
+                role="listitem"
+              >
                 <span className="nav-link-icon">{item.icon}</span>
                 {item.label}
               </NavLink>
             ))}
           </div>
           <div className="sidebar-footer">
-            <button className="btn-icon" onClick={cycleTheme}
-              aria-label={`Switch theme (current: ${theme})`} title={`Theme: ${theme}`}>
+            <button
+              className="btn-icon"
+              onClick={cycleTheme}
+              aria-label={`Switch theme (current: ${theme})`}
+              title={`Theme: ${theme}`}
+            >
               {themeIcon}
             </button>
             <div className="ai-badge" style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: 12 }}>
