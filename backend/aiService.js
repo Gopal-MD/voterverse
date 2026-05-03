@@ -175,4 +175,6 @@ class AIServiceManager {
   }
 }
 
-module.exports = new AIServiceManager();
+const instance = new AIServiceManager();
+instance.MOCK_RESPONSES = MOCK_RESPONSES;
+module.exports = instance;
