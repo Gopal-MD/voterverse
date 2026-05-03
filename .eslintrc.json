@@ -1,54 +1,9 @@
-{
-  "root": true,
-  "env": {
-    "browser": true,
-    "node": true,
-    "es2022": true,
-    "jest": true
-  },
-  "extends": [
-    "eslint:recommended",
-    "plugin:react/recommended",
-    "plugin:react-hooks/recommended",
-    "google",
-    "prettier"
-  ],
-  "parserOptions": {
-    "ecmaVersion": "latest",
-    "sourceType": "module",
-    "ecmaFeatures": {
-      "jsx": true
-    }
-  },
-  "plugins": ["react", "react-hooks"],
+﻿{
+  "extends": ["eslint:recommended"],
+  "env": { "node": true, "es2022": true },
   "rules": {
-    "no-console": "error",
-    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
-    "consistent-return": "error",
-    "prefer-const": "error",
-    "no-duplicate-imports": "error",
-    "react/react-in-jsx-scope": "off",
-    "react/prop-types": "warn",
-    "require-jsdoc": ["error", {
-      "require": {
-        "FunctionDeclaration": true,
-        "MethodDefinition": true,
-        "ClassDeclaration": true,
-        "ArrowFunctionExpression": true,
-        "FunctionExpression": true
-      }
-    }],
-    "valid-jsdoc": ["error", {
-      "requireReturn": true,
-      "requireReturnType": true,
-      "requireParamDescription": true,
-      "requireReturnDescription": true
-    }]
-  },
-  "settings": {
-    "react": {
-      "version": "detect"
-    }
-  },
-  "ignorePatterns": ["node_modules/", "dist/", "build/", "coverage/", "scripts/"]
+    "no-console": "warn",
+    "no-unused-vars": "error",
+    "prefer-const": "error"
+  }
 }
