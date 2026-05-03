@@ -8,10 +8,27 @@ const { successResponse, errorResponse } = require('../utils/responseWrapper');
 const { chatLimiter } = require('../middleware/rateLimiters');
 
 /**
+ * Helper to set standard SSE headers
+ * @param {import('express').Response} res
+ */
+function setSSEHeaders(res) {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+}
+
+/**
  * @swagger
  * /api/chat/history/{sessionId}:
  *   get:
  *     summary: Gets chat history for a session
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema: { type: string }
  *     responses:
  *       200:
  *         description: Array of chat messages
@@ -31,6 +48,11 @@ router.get('/history/:sessionId', async (req, res, next) => {
  * /api/chat/{sessionId}:
  *   delete:
  *     summary: Clears chat history for a session
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema: { type: string }
  *     responses:
  *       200:
  *         description: Clear status
@@ -50,6 +72,15 @@ router.delete('/:sessionId', async (req, res, next) => {
  * /api/chat/stream:
  *   post:
  *     summary: Streams an AI chatbot response (SSE)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               sessionId: { type: string }
+ *               message: { type: string }
  *     responses:
  *       200:
  *         description: SSE Stream
@@ -65,15 +96,11 @@ router.post('/stream', chatLimiter, async (req, res) => {
     }
 
     const history = await db.appendMessage(sessionId, { role: 'user', content: message });
-
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
-    res.flushHeaders();
+    setSSEHeaders(res);
 
     let fullModelResponse = '';
     const stream = ai.streamChatResponse(message, history.slice(0, -1), topic);
+
     for await (const chunk of stream) {
       if (chunk.type === 'text') {
         fullModelResponse += chunk.chunk;

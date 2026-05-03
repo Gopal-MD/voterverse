@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { trackEvent } from '../utils/analytics';
 import { fileToBase64 } from '../utils/fileHelpers';
 
@@ -31,10 +31,7 @@ export default function FraudReportCenter() {
   const [error, setError] = useState('');
   const [tab, setTab] = useState('report');
 
-  /**
-   * Fetches public anonymized reports from the backend.
-   */
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     try {
       const r = await fetch('/api/fraud/reports');
       const _data = await r.json();
@@ -44,11 +41,13 @@ export default function FraudReportCenter() {
     } catch {
       setReports([]);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    if (tab === 'dashboard') fetchReports();
-  }, [tab]);
+    if (tab === 'dashboard') {
+      fetchReports();
+    }
+  }, [tab, fetchReports]);
 
   /**
    * Submits the fraud report for AI classification and storage.
