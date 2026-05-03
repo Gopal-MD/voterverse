@@ -52,7 +52,13 @@ const swaggerOptions = {
       description: 'Interactive API Documentation for the VoterVerse platform.',
       contact: { name: 'VoterVerse Engineering' },
     },
-    servers: [{ url: `http://localhost:${PORT}`, description: 'Local Server' }],
+    servers: [
+      { url: `http://localhost:${PORT}`, description: 'Local Server' },
+      {
+        url: 'https://voterverse-442905020232.asia-south1.run.app/',
+        description: 'Production Server',
+      },
+    ],
   },
   apis: ['./routes/*.js', './server.js'], // Scan both for documentation
 };
