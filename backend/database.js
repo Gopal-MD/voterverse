@@ -9,76 +9,70 @@ const constants = require('./config/constants');
 const ELECTION_TIMELINE = require('./config/timeline.json');
 
 /**
+ * Base Database Provider with common operations.
+ */
+class BaseDB {
+  /**
+   * Sort reports by creation date (newest first).
+   * @param {array} reports - Reports to sort
+   * @returns {array} Sorted reports
+   */
+  sortReportsByDate(reports) {
+    return reports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
+
+  /**
+   * Trim conversation history to max length.
+   * @param {array} history - Conversation history
+   * @returns {array} Trimmed history
+   */
+  trimConversationHistory(history) {
+    const maxLen = constants.AI.MAX_CHAT_HISTORY * 2;
+    if (history.length > maxLen) {
+      return history.slice(-maxLen);
+    }
+    return history;
+  }
+}
+
+/**
  * InMemoryDB Provider
  * Implementation for development or fallback scenarios.
  */
-class InMemoryDB {
+class InMemoryDB extends BaseDB {
   constructor() {
+    super();
     this.reports = new Map();
     this.conversations = new Map();
     this.timeline = ELECTION_TIMELINE;
     logger.info('Database initialized in MEMORY mode');
   }
 
-  /**
-   * Saves a fraud report to memory.
-   * @param {string} id - Unique report ID
-   * @param {object} report - Report details
-   * @returns {Promise<string>} The report ID
-   */
   async saveReport(id, report) {
     this.reports.set(id, { ...report, id, createdAt: new Date().toISOString() });
     return id;
   }
 
-  /**
-   * Fetches all reports from memory.
-   * @returns {Promise<array>} Array of reports
-   */
   async getReports() {
-    return Array.from(this.reports.values()).sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-    );
+    return this.sortReportsByDate(Array.from(this.reports.values()));
   }
 
-  /**
-   * Fetches the election timeline.
-   * @returns {Promise<array>} Array of timeline steps
-   */
   async getTimeline() {
     return this.timeline;
   }
 
-  /**
-   * Fetches conversation history.
-   * @param {string} sessionId
-   * @returns {Promise<array>} Array of messages
-   */
   async getConversation(sessionId) {
     return this.conversations.get(sessionId) || [];
   }
 
-  /**
-   * Appends a message to a conversation.
-   * @param {string} sessionId
-   * @param {object} message
-   * @returns {Promise<array>} Updated history
-   */
   async appendMessage(sessionId, message) {
     const history = await this.getConversation(sessionId);
     history.push({ ...message, timestamp: new Date().toISOString() });
-    // Cap history
-    if (history.length > constants.AI.MAX_CHAT_HISTORY * 2) {
-      history.splice(0, history.length - constants.AI.MAX_CHAT_HISTORY * 2);
-    }
-    this.conversations.set(sessionId, history);
-    return history;
+    const trimmed = this.trimConversationHistory(history);
+    this.conversations.set(sessionId, trimmed);
+    return trimmed;
   }
 
-  /**
-   * Clears a conversation.
-   * @param {string} sessionId
-   */
   async clearConversation(sessionId) {
     this.conversations.delete(sessionId);
   }
@@ -92,8 +86,9 @@ class InMemoryDB {
  * FirebaseDB Provider
  * Production-ready implementation using Firebase Admin SDK.
  */
-class FirebaseDB {
+class FirebaseDB extends BaseDB {
   constructor() {
+    super();
     this.db = admin.database();
     logger.info('Database initialized in FIREBASE mode');
   }
@@ -109,7 +104,7 @@ class FirebaseDB {
     const ref = this.db.ref('reports');
     const snapshot = await ref.once('value');
     const val = snapshot.val() || {};
-    return Object.values(val).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return this.sortReportsByDate(Object.values(val));
   }
 
   async getTimeline() {
@@ -128,11 +123,9 @@ class FirebaseDB {
   async appendMessage(sessionId, message) {
     const history = await this.getConversation(sessionId);
     history.push({ ...message, timestamp: new Date().toISOString() });
-    if (history.length > constants.AI.MAX_CHAT_HISTORY * 2) {
-      history.splice(0, history.length - constants.AI.MAX_CHAT_HISTORY * 2);
-    }
-    await this.db.ref(`conversations/${sessionId}`).set(history);
-    return history;
+    const trimmed = this.trimConversationHistory(history);
+    await this.db.ref(`conversations/${sessionId}`).set(trimmed);
+    return trimmed;
   }
 
   async clearConversation(sessionId) {
