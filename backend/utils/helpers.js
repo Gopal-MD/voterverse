@@ -39,6 +39,16 @@ async function withRetry(fn, maxAttempts = 3, delayMs = 1000) {
   throw lastError;
 }
 
+/**
+ * Helper: Generate a unique report ID with timestamp and entropy.
+ * @returns {string}
+ */
+function generateReportId() {
+  const timestamp = Date.now().toString(36);
+  const random = crypto.randomBytes(8).toString('hex');
+  return `VV-${timestamp}-${random}`;
+}
+
 module.exports = {
   sanitize,
   generateReportId,
