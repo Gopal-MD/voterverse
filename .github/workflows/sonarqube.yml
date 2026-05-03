@@ -1,0 +1,65 @@
+name: SonarQube Analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  sonarqube:
+    name: SonarQube Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history is required for accurate blame information and new-code detection
+          fetch-depth: 0
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm install
+          npm install --prefix backend
+          npm install --prefix frontend
+
+      - name: Run backend tests with coverage
+        run: npm run coverage --prefix backend
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        continue-on-error: true
+
+      - name: Run frontend tests with coverage
+        run: npm run coverage --prefix frontend
+        continue-on-error: true
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=Gopal-MD_voterverse
+            -Dsonar.projectName=VoterVerse
+            -Dsonar.projectVersion=1.2.0
+            -Dsonar.sources=frontend/src,backend
+            -Dsonar.tests=frontend/src/__tests__,frontend/tests/e2e,backend/tests
+            -Dsonar.inclusions=**/*.js,**/*.jsx
+            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/build/**,**/coverage/**,**/*.config.js,**/*.config.mjs,**/public/**
+            -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info,backend/coverage/lcov.info
+            -Dsonar.qualitygate.wait=true
+
+      - name: SonarQube Quality Gate check
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

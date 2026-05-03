@@ -6,6 +6,7 @@
 ![SonarQube](https://img.shields.io/badge/SonarQube-A--Score-brightgreen.svg)
 ![OWASP](https://img.shields.io/badge/OWASP-Compliant-blue.svg)
 ![CI](https://github.com/Gopal-MD/voterverse/workflows/CI/badge.svg)
+![E2E Tests](https://img.shields.io/badge/E2E%20Tests-Playwright-45ba4b.svg?logo=playwright)
 
 <p align="center">
   <img src="frontend/public/logo.png" alt="VoterVerse Logo" width="120" />
@@ -449,6 +450,47 @@ npx vitest run backend/tests/security.test.js     # Security
 npx vitest run backend/tests/integration.test.js  # E2E flows
 npx vitest run backend/tests/edge_cases.test.js   # Failure modes
 ```
+
+### Frontend Component Tests (Vitest + React Testing Library)
+
+```bash
+# Run all frontend unit tests
+npm run test --prefix frontend
+
+# Run with coverage
+npm run coverage --prefix frontend
+```
+
+| Suite                          | What It Tests                                        |
+| ------------------------------ | ---------------------------------------------------- |
+| `ElectionTimeline.test.jsx`    | Timeline rendering, ARIA roles, 7-step data display  |
+| `DocumentAnalyzer.test.jsx`    | Upload zone, privacy notice, analyze button state    |
+| `FraudReportCenter.test.jsx`   | Form validation, submit guard, privacy notice        |
+| `QuizArena.test.jsx`           | Topic selection, question loading, answer feedback   |
+| `LanguageSelector.test.jsx`    | Language persistence, localStorage, callback prop    |
+
+### End-to-End Tests (Playwright)
+
+```bash
+# Run E2E tests (requires dev server)
+npm run test:e2e --prefix frontend
+
+# Run in headed mode for debugging
+npx playwright test --headed --prefix frontend
+
+# View HTML report
+npx playwright show-report
+```
+
+| Suite                    | User Journey Validated                                          |
+| ------------------------ | --------------------------------------------------------------- |
+| Election Timeline Flow   | Navigate → view 7 steps → click step → AI explanation shown    |
+| Document Analyzer Flow   | Upload zone visible → analyze button disabled → privacy notice  |
+| Fraud Report Submission  | Fill form → submit → AI classification result → report ID       |
+| Quiz Arena Flow          | Select topic → question renders → answer → feedback shown       |
+| AI Chatbot Flow          | Topic card click → response bubble → follow-up suggestions      |
+| Polling Booth Finder     | Map renders → booth list → Locate Me button present             |
+| Accessibility            | High-contrast toggle → main landmark → ARIA roles               |
 
 ### Test Coverage
 

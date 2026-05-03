@@ -7,6 +7,7 @@ import ElectionTimeline from '../pages/ElectionTimeline';
 beforeEach(() => {
   global.fetch = vi.fn(() =>
     Promise.resolve({
+      ok: true,
       json: () =>
         Promise.resolve({
           timeline: [
@@ -97,7 +98,7 @@ describe('ElectionTimeline', () => {
       </BrowserRouter>
     );
     await screen.findByText(/Election Announcement/);
-    const list = screen.getByRole('list', { name: /election process/i });
+    const list = screen.getByRole('list', { name: /election timeline/i });
     expect(list).toBeInTheDocument();
   });
 });
