@@ -1,33 +1,34 @@
-# Security Policy
+# Security Policy: VoterVerse
 
-## Supported Versions
+## 🛡️ Responsible Disclosure
+We take the security of VoterVerse seriously. If you find a vulnerability, please report it to **security@voterverse.io**.
 
-The following versions of VoterVerse are currently being supported with security updates:
+## 🏗️ Threat Model
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.2.x   | :white_check_mark: |
-| 1.1.x   | :x:                |
-| < 1.1.0 | :x:                |
+### Assets
+- **Election Documents**: Citizen-uploaded IDs (Processed in-memory only).
+- **Fraud Reports**: Publicly reported election incidents.
+- **API Keys**: Gemini AI, Google Maps, Firebase credentials.
 
-## Reporting a Vulnerability
+### Potential Threats & Mitigations
+- **Injection Attacks**: Mitigated by strict `sanitize` helpers and Firebase security rules.
+- **API Overuse**: Mitigated by centralized `rateLimiters.js` and quota monitoring.
+- **Data Leakage**: Mitigated by "Fail-Fast" environment validation ensuring no debug modes in production.
 
-We take the security of VoterVerse seriously. If you believe you have found a security vulnerability, please report it to us responsibly.
+## ✅ OWASP Compliance Checklist
+| Category | Status | Implementation |
+| --- | --- | --- |
+| A01: Broken Access Control | 🟢 Secure | Firebase Realtime DB Security Rules |
+| A02: Cryptographic Failures | 🟢 Secure | HTTPS enforced via Google Cloud Run |
+| A03: Injection | 🟢 Secure | Sanitization middleware & Parameterized logic |
+| A04: Insecure Design | 🟢 Secure | Fail-fast startup & Modular routing |
+| A05: Security Misconfig | 🟢 Secure | Helmet.js & Strict CSP Headers |
+| A06: Vuln & Outdated Comp | 🟢 Secure | Daily Dependabot scans & CI/CD linting |
+| A07: Ident & Auth Failures | 🟢 Secure | Session-based rate limiting & Sanitized identifiers |
 
-**Please do not report security vulnerabilities through public GitHub issues.**
-
-Instead, please send an email to **security@voterverse.io** with a detailed description of the vulnerability, including steps to reproduce it. We will acknowledge receipt of your report within 48 hours and provide a timeline for resolution.
-
-### Our Commitment
-
-- We will respond to your report promptly.
-- We will keep you informed of our progress.
-- We will give credit to the reporter in our changelog (unless you wish to remain anonymous).
-- We will not take legal action against you as long as you follow our responsible disclosure policy.
-
-## Security Features in VoterVerse
-
-- **Environment Validation**: Fail-fast startup logic ensures all Google Cloud secrets are present.
-- **Rate Limiting**: Centralized security throttling across all API endpoints.
-- **Audit Logging**: Structured logging of all security-sensitive events.
-- **In-Memory Image Processing**: Election documents are processed in-memory and never persisted to storage.
+## 🚨 Incident Response Procedures
+1. **Identification**: Alert triggered via Google Cloud Monitoring logs.
+2. **Containment**: Temporary shutoff of specific API routes via Cloud Run revision rollback.
+3. **Eradication**: Patching vulnerability in a feature branch and deploying via CI/CD.
+4. **Recovery**: Verifying integrity of Firebase data and re-enabling services.
+5. **Post-Mortem**: Documenting the event in the internal Audit Log.

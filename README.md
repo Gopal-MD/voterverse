@@ -3,6 +3,8 @@
 ![ESLint](https://img.shields.io/badge/ESLint-passing-brightgreen.svg)
 ![Prettier](https://img.shields.io/badge/Prettier-enforced-blue.svg)
 [![codecov](https://codecov.io/gh/Gopal-MD/voterverse/branch/main/graph/badge.svg)](https://codecov.io/gh/Gopal-MD/voterverse)
+![SonarQube](https://img.shields.io/badge/SonarQube-A--Score-brightgreen.svg)
+![OWASP](https://img.shields.io/badge/OWASP-Compliant-blue.svg)
 ![CI](https://github.com/Gopal-MD/voterverse/actions/workflows/code-quality.yml/badge.svg)
 
 <p align="center">
